@@ -1,7 +1,6 @@
 # ========================
 # Environment & Secrets
 # ========================
-.env
 .env.local
 .env.*.local
 .env.development
@@ -55,7 +54,6 @@ var/
 sdist/
 develop-eggs/
 .installed.cfg
-lib/
 lib64/
 .eggs/
 

@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame, PLAYER_MAX_HP_VALUE } from '@/context/GameContext'
 import { streamQuestion, streamAnswer, readStream, parseVerdict } from '@/lib/api'
-import Starfield from '@/components/ui/Starfield'
+import ParallaxBackground from '@/components/ui/parallax-background'
+import TwinklingStars from '@/components/ui/twinkling-stars'
 
 /* ─── Parse MCQ choices from question text ─── */
 function extractChoices(text: string): string[] | null {
@@ -19,6 +20,7 @@ function extractChoices(text: string): string[] | null {
   }
   return null
 }
+
 
 /* ─── Boss pixel sprite ─── */
 const BOSS_GRID = [
@@ -364,11 +366,25 @@ export default function BattlePage() {
         animation: shake ? 'shake 0.4s ease' : 'none',
         position: 'relative',
       }}>
-        <Starfield color="160,170,255" />
+
+        <ParallaxBackground
+          layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]}
+          zIndex={0}
+          showOverlay={true}
+          backgroundColor="#03030a"
+        />
+
+        <TwinklingStars count={90} minSize={1} maxSize={2} color="#ffffff" zIndex={1} />
+
+        <ParallaxBackground
+          layers={[{ imagePath: '/images/planets.png', parallaxIntensity: 10 }]}
+          zIndex={2}
+          showOverlay={false}
+        />
 
         {/* Scanlines */}
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
+          position: 'fixed', inset: 0, zIndex: 3, pointerEvents: 'none',
           backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)',
           animation: 'scanlines 0.1s linear infinite',
         }} />
@@ -383,7 +399,7 @@ export default function BattlePage() {
         ═══════════════════════════════════════════ */}
         <div style={{
           position: 'relative',
-          zIndex: 2,
+          zIndex: 4,
           height: '58vh',
           flexShrink: 0,
           overflow: 'hidden',
@@ -564,7 +580,7 @@ export default function BattlePage() {
         ═══════════════════════════════════════════ */}
         <div style={{
           position: 'relative',
-          zIndex: 2,
+          zIndex: 4,
           flex: 1,
           minHeight: 0,
           borderTop: '1px solid #ffffff0a',
