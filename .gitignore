@@ -144,6 +144,11 @@ docker-compose.override.yml
 .dockerignore
 
 # ========================
+# TypeScript
+# ========================
+tsconfig.tsbuildinfo
+
+# ========================
 # Misc
 # ========================
 *.tmp
