@@ -4,87 +4,39 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame } from '@/context/GameContext'
 import { uploadPDF } from '@/lib/api'
-import Starfield from '@/components/ui/Starfield'
+import PixelButton from '@/components/ui/pixel-hover-effect'
+import PixelGridBg from '@/components/ui/pixel-grid-bg'
 
-/* ─────────────────────────────────────────────
-   BOSS PIXEL ART
-───────────────────────────────────────────── */
-const BOSS_GRID = [
-  [0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-  [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
-  [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-  [1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-  [1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0],
-  [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-  [0, 1, 2, 1, 2, 1, 1, 2, 1, 2, 1, 0, 0],
-  [0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0],
-]
-
-function BossIcon({ active }: { active: boolean }) {
-  const body = active ? '#FF3333' : '#AA0018'
-  const eye = '#FFE000'
-  const bodyGlow = active ? '0 0 6px #FF333399, 0 0 14px #FF333344' : '0 0 3px #AA001866'
-  const eyeGlow = '0 0 5px #FFE000cc, 0 0 10px #FFE00088'
-  return (
-    <div style={{ lineHeight: 0, animation: 'bossFloat 2.4s ease-in-out infinite', flexShrink: 0 }}>
-      {BOSS_GRID.map((row, r) => (
-        <div key={r} style={{ display: 'flex' }}>
-          {row.map((cell, c) => (
-            <div key={c} style={{
-              width: 7, height: 7,
-              backgroundColor: cell === 1 ? body : cell === 2 ? eye : 'transparent',
-              boxShadow: cell === 1 ? bodyGlow : cell === 2 ? eyeGlow : 'none',
-            }} />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────
-   HP BAR
-───────────────────────────────────────────── */
-function HpBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const segments = 18
-  const filled = Math.round((value / max) * segments)
-  return (
-    <div style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-        <span style={{ fontSize: 'clamp(4px, 1.2vw, 6px)', color, letterSpacing: 2, textShadow: `0 0 5px ${color}88` }}>{label}</span>
-        <span style={{ fontSize: 'clamp(4px, 1.2vw, 6px)', color: '#555', letterSpacing: 1 }}>{value}/{max}</span>
-      </div>
-      <div style={{ display: 'flex', gap: 2 }}>
-        {Array.from({ length: segments }, (_, i) => (
-          <div key={i} style={{
-            flex: 1, height: 7,
-            backgroundColor: i < filled ? color : '#111',
-            boxShadow: i < filled ? `0 0 4px ${color}88` : 'none',
-          }} />
-        ))}
-      </div>
-    </div>
-  )
+/* palette */
+const C = {
+  bg:      '#080c10',
+  panel:   '#0e1318',
+  border:  '#2a3340',
+  borderHi:'#4a6070',
+  text:    '#a8b8c4',
+  textDim: '#3a4a54',
+  accent:  '#5a8fa8',   // muted steel blue
+  gold:    '#9a8050',   // muted amber
+  green:   '#4a7858',   // muted sage
+  red:     '#8a3a30',   // muted brick
 }
 
 /* ─────────────────────────────────────────────
    PIXEL CORNER
 ───────────────────────────────────────────── */
 function PixelCorner({ pos, color }: { pos: 'tl' | 'tr' | 'bl' | 'br'; color: string }) {
-  const isTop = pos.startsWith('t')
+  const isTop  = pos.startsWith('t')
   const isLeft = pos.endsWith('l')
   return (
     <div style={{
       position: 'absolute',
-      ...(isTop ? { top: -1 } : { bottom: -1 }),
-      ...(isLeft ? { left: -1 } : { right: -1 }),
-      width: 14, height: 14,
-      borderTop: isTop ? `3px solid ${color}` : 'none',
-      borderBottom: !isTop ? `3px solid ${color}` : 'none',
-      borderLeft: isLeft ? `3px solid ${color}` : 'none',
-      borderRight: !isLeft ? `3px solid ${color}` : 'none',
+      ...(isTop  ? { top: -1 }    : { bottom: -1 }),
+      ...(isLeft ? { left: -1 }   : { right: -1 }),
+      width: 12, height: 12,
+      borderTop:    isTop    ? `2px solid ${color}` : 'none',
+      borderBottom: !isTop   ? `2px solid ${color}` : 'none',
+      borderLeft:   isLeft   ? `2px solid ${color}` : 'none',
+      borderRight:  !isLeft  ? `2px solid ${color}` : 'none',
       pointerEvents: 'none',
     }} />
   )
@@ -93,61 +45,107 @@ function PixelCorner({ pos, color }: { pos: 'tl' | 'tr' | 'bl' | 'br'; color: st
 /* ─────────────────────────────────────────────
    UPLOAD ZONE
 ───────────────────────────────────────────── */
-function UploadZone({ onFile }: { onFile: (f: File) => void }) {
-  const [dragging, setDragging] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
+function UploadZone({ onFiles }: { onFiles: (files: File[]) => void }) {
+  const [dragging, setDragging]   = useState(false)
+  const [files, setFiles]         = useState<File[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const accept = (f: File | undefined) => {
-    if (f?.type === 'application/pdf') { setFile(f); onFile(f) }
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return
+    const pdfs = Array.from(incoming).filter(f => f.type === 'application/pdf')
+    if (!pdfs.length) return
+    setFiles(prev => {
+      const names = new Set(prev.map(f => f.name))
+      const next  = [...prev, ...pdfs.filter(f => !names.has(f.name))]
+      onFiles(next)
+      return next
+    })
   }
 
-  const borderColor = file ? '#39FF14' : dragging ? '#FF0040' : '#FFD700'
-  const glowColor = file ? '#39FF14' : dragging ? '#FF0040' : '#FFD700'
+  const remove = (name: string) => {
+    setFiles(prev => {
+      const next = prev.filter(f => f.name !== name)
+      onFiles(next)
+      return next
+    })
+  }
+
+  const borderColor = dragging ? C.accent : files.length > 0 ? C.green : C.border
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ fontSize: 'clamp(4px, 1.1vw, 6px)', color: '#444', letterSpacing: 2, marginBottom: 6 }}>
-        ── SELECT WEAPON ─────────────────────────
-      </div>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Drop zone */}
       <div
         style={{
-          width: '100%', minHeight: 120,
+          width: '100%', minHeight: 100,
           border: `2px solid ${borderColor}`,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', padding: '20px 16px', boxSizing: 'border-box',
-          transition: 'border-color 0.2s, box-shadow 0.2s, background-color 0.2s',
-          boxShadow: `0 0 12px ${glowColor}44, inset 0 0 20px ${glowColor}0a`,
-          backgroundColor: `${glowColor}06`, position: 'relative',
+          cursor: 'pointer', padding: '18px 16px', boxSizing: 'border-box',
+          transition: 'border-color 0.2s, background-color 0.2s',
+          backgroundColor: dragging ? `${C.accent}08` : `${C.panel}`,
+          position: 'relative',
         }}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); accept(e.dataTransfer.files[0]) }}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onClick={() => inputRef.current?.click()}
         role="button" tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
       >
-        <input ref={inputRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => accept(e.target.files?.[0])} />
+        <input
+          ref={inputRef} type="file" accept=".pdf" multiple
+          style={{ display: 'none' }}
+          onChange={(e) => addFiles(e.target.files)}
+        />
         <PixelCorner pos="tl" color={borderColor} />
         <PixelCorner pos="tr" color={borderColor} />
         <PixelCorner pos="bl" color={borderColor} />
         <PixelCorner pos="br" color={borderColor} />
         <p style={{
-          margin: 0, fontSize: 'clamp(6px, 1.7vw, 9px)',
-          color: file ? '#39FF14' : '#FFD700',
-          textAlign: 'center', lineHeight: 2.4,
+          margin: 0, fontSize: 'clamp(7px, 1.6vw, 10px)',
+          color: dragging ? C.accent : C.text,
+          textAlign: 'center', lineHeight: 2.2,
           fontFamily: 'var(--font-pixel), monospace',
-          textShadow: file ? '0 0 6px #39FF1488' : '0 0 6px #FFD70088',
         }}>
-          {file ? `► ${file.name}` : dragging ? '▼ DROP HERE ▼' : '▲ DROP PDF HERE ▲\nor click to browse'}
+          {dragging ? '▼ DROP HERE ▼' : '▲ DROP PDF(S) HERE ▲\nor click to browse'}
         </p>
-        {file && (
-          <div style={{ marginTop: 6, fontSize: 'clamp(4px, 1vw, 6px)', color: '#39FF14', letterSpacing: 2, textShadow: '0 0 4px #39FF1488' }}>
-            SCROLL LOADED ✓
-          </div>
-        )}
       </div>
+
+      {/* File list */}
+      {files.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, marginBottom: 2 }}>
+            ── {files.length} FILE{files.length > 1 ? 'S' : ''} LOADED
+          </div>
+          {files.map((f) => (
+            <div key={f.name} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 10px',
+              border: `1px solid ${C.border}`,
+              backgroundColor: C.panel,
+              position: 'relative',
+            }}>
+              <PixelCorner pos="tl" color={C.green} />
+              <PixelCorner pos="br" color={C.green} />
+              <span style={{ fontSize: 'clamp(6px, 1.4vw, 8px)', color: C.green, letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
+                ► {f.name}
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); remove(f.name) }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 'clamp(7px, 1.4vw, 9px)', color: C.red,
+                  fontFamily: 'var(--font-pixel), monospace', letterSpacing: 1,
+                  padding: '2px 4px', flexShrink: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -167,13 +165,12 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
   onReady: () => void
   onError: (msg: string) => void
 }) {
-  const { initGame } = useGame()
+  const { initGame }  = useGame()
   const [visible, setVisible] = useState<string[]>([])
   const [cursorIdx, setCursorIdx] = useState(0)
   const calledRef = useRef(false)
 
   useEffect(() => {
-    // Cycle loading messages
     let i = 0
     const show = () => {
       if (i >= LOADING_LINES.length) return
@@ -183,44 +180,39 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
     }
     setTimeout(show, 300)
 
-    // Call API in parallel
     if (!calledRef.current) {
       calledRef.current = true
       uploadPDF(pdfBase64)
-        .then((data) => {
-          initGame(data.bossRush, data.bosses)
-          onReady()
-        })
-        .catch((err) => onError(err.message ?? 'Upload failed'))
+        .then((data) => { initGame(data.bossRush, data.bosses); onReady() })
+        .catch((err)  => onError(err.message ?? 'Upload failed'))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
     <div style={{
-      minHeight: '100vh', backgroundColor: '#050505',
+      minHeight: '100vh', backgroundColor: C.bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'var(--font-pixel), monospace', position: 'relative', overflow: 'hidden',
     }}>
-      <Starfield />
+      <PixelGridBg />
       <div style={{
         position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.13) 2px, rgba(0,0,0,0.13) 4px)',
+        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.10) 2px, rgba(0,0,0,0.10) 4px)',
       }} />
-      <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', gap: 28, padding: 40 }}>
-        <p style={{ margin: 0, marginBottom: 8, fontSize: 'clamp(7px, 2vw, 12px)', color: '#FF0040', textShadow: '0 0 8px #FF0040aa', letterSpacing: 3 }}>
+      <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', gap: 24, padding: 40 }}>
+        <p style={{ margin: 0, marginBottom: 8, fontSize: 'clamp(7px, 2vw, 12px)', color: C.accent, letterSpacing: 3 }}>
           ── LOADING ──
         </p>
         {visible.map((line, i) => (
           <p key={i} style={{
             margin: 0, fontSize: 'clamp(7px, 1.8vw, 11px)',
-            color: '#FFD700', textShadow: '0 0 8px #FFD70088',
-            lineHeight: 1.6, animation: 'fadeSlide 0.4s ease',
+            color: C.text, lineHeight: 1.6, animation: 'fadeSlide 0.4s ease',
           }}>
-            <span style={{ color: '#39FF14', textShadow: '0 0 6px #39FF14aa' }}>&gt;&gt; </span>
+            <span style={{ color: C.gold }}>&gt;&gt; </span>
             {line}
             {i === cursorIdx && (
-              <span style={{ display: 'inline-block', color: '#FFD700', marginLeft: 3, animation: 'blink 0.75s step-start infinite' }}>█</span>
+              <span style={{ display: 'inline-block', color: C.text, marginLeft: 3, animation: 'blink 0.75s step-start infinite' }}>█</span>
             )}
           </p>
         ))}
@@ -234,22 +226,20 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
 ───────────────────────────────────────────── */
 export default function Home() {
   const router = useRouter()
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles]         = useState<File[]>([])
   const [pdfBase64, setPdfBase64] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [btnHover, setBtnHover] = useState(false)
-  const [score] = useState(() => Math.floor(Math.random() * 900000 + 10000))
-  const [hiScore] = useState(() => Math.floor(Math.random() * 9000000 + 100000))
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState<string | null>(null)
 
-  const handleFile = (f: File) => {
-    setFile(f)
+  const handleFiles = (incoming: File[]) => {
+    setFiles(incoming)
+    if (!incoming.length) { setPdfBase64(null); return }
     const reader = new FileReader()
     reader.onload = () => {
       const b64 = (reader.result as string).split(',')[1]
       setPdfBase64(b64)
     }
-    reader.readAsDataURL(f)
+    reader.readAsDataURL(incoming[0])
   }
 
   if (loading && pdfBase64) {
@@ -267,16 +257,12 @@ export default function Home() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes titleFlicker {
-          0%,19%,21%,23%,54%,56%,100% { text-shadow: 0 0 6px #FF0040, 0 0 18px #FF0040aa, 0 0 36px #FF004055; opacity: 1; }
-          20%,24%,55% { opacity: 0.82; text-shadow: none; }
+          0%,19%,21%,23%,54%,56%,100% { opacity: 1; }
+          20%,24%,55% { opacity: 0.7; }
         }
         @keyframes titlePulse {
-          0%,100% { text-shadow: 0 0 8px #FFD700, 0 0 22px #FFD700aa, 0 0 44px #FFD70044; }
-          50%      { text-shadow: 0 0 16px #FFD700, 0 0 36px #FFD700cc, 0 0 66px #FFD70066; }
-        }
-        @keyframes bossFloat {
-          0%,100% { transform: translateY(0); }
-          50%      { transform: translateY(-5px); }
+          0%,100% { opacity: 0.9; }
+          50%      { opacity: 1; }
         }
         @keyframes insertCoin {
           0%,49%  { opacity: 1; }
@@ -284,147 +270,76 @@ export default function Home() {
           100%    { opacity: 1; }
         }
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(14px); }
+          from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scanlines {
-          0%   { background-position: 0 0; }
-          100% { background-position: 0 4px; }
-        }
-        @keyframes screenFlicker {
-          0%,96%,100% { opacity: 1; }
-          97%          { opacity: 0.91; }
-          98%          { opacity: 0.97; }
-          99%          { opacity: 0.93; }
-        }
-        @keyframes btnReady {
-          0%,100% { box-shadow: 0 0 10px #FF004044, 0 0 30px #FF004022; }
-          50%      { box-shadow: 0 0 22px #FF0040aa, 0 0 50px #FF004055; }
         }
         @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         @keyframes fadeSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #000; }
-        ::-webkit-scrollbar-thumb { background: #FFD70044; }
+        ::-webkit-scrollbar-track { background: ${C.bg}; }
+        ::-webkit-scrollbar-thumb { background: ${C.border}; }
       `}</style>
 
       <div style={{
-        minHeight: '100vh', backgroundColor: '#050505',
+        minHeight: '100vh', backgroundColor: C.bg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', overflow: 'hidden',
         fontFamily: 'var(--font-pixel), monospace',
-        animation: 'screenFlicker 9s ease-in-out infinite',
       }}>
-        <Starfield />
+        <PixelGridBg />
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px)',
-          animation: 'scanlines 0.08s linear infinite',
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
         }} />
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.85) 100%)',
+          background: 'radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,0.7) 100%)',
         }} />
-
-        {/* HUD */}
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 6,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-          padding: '10px 20px 8px',
-          borderBottom: '1px solid #FFD70018',
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)',
-        }}>
-          <div>
-            <div style={{ fontSize: 'clamp(4px, 0.9vw, 6px)', color: '#FF0040', letterSpacing: 3, textShadow: '0 0 4px #FF004088' }}>1UP</div>
-            <div style={{ fontSize: 'clamp(6px, 1.3vw, 8px)', color: '#fff', letterSpacing: 1, marginTop: 2 }}>{String(score).padStart(6, '0')}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'clamp(4px, 0.9vw, 6px)', color: '#FFD700', letterSpacing: 3, textShadow: '0 0 4px #FFD70088' }}>HI-SCORE</div>
-            <div style={{ fontSize: 'clamp(6px, 1.3vw, 8px)', color: '#FFD700', letterSpacing: 1, marginTop: 2, textShadow: '0 0 6px #FFD70088' }}>{String(hiScore).padStart(7, '0')}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 'clamp(4px, 0.9vw, 6px)', color: '#39FF14', letterSpacing: 3, textShadow: '0 0 4px #39FF1488' }}>CREDITS</div>
-            <div style={{ fontSize: 'clamp(6px, 1.3vw, 8px)', color: '#fff', letterSpacing: 1, marginTop: 2 }}>03</div>
-          </div>
-        </div>
 
         {/* Main panel */}
         <div style={{
           position: 'relative', zIndex: 3,
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', gap: 14,
-          padding: '52px 28px 28px',
+          alignItems: 'center', gap: 16,
+          padding: '32px 28px',
           maxWidth: 520, width: '100%',
-          animation: 'fadeIn 0.7s ease',
+          animation: 'fadeIn 0.6s ease',
         }}>
           {/* Title */}
           <div style={{ textAlign: 'center', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 6 }}>
               {['STUDY', 'BOSS'].map((word) => (
-                <h1 key={word} style={{ margin: 0, fontSize: 'clamp(13px, 3.5vw, 22px)', letterSpacing: 5, color: '#FF0040', animation: 'titleFlicker 7s linear infinite' }}>{word}</h1>
+                <h1 key={word} style={{ margin: 0, fontSize: 'clamp(13px, 3.5vw, 22px)', letterSpacing: 5, color: C.accent, animation: 'titleFlicker 7s linear infinite' }}>{word}</h1>
               ))}
             </div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 34px)', letterSpacing: 6, color: '#FFD700', animation: 'titlePulse 2.2s ease-in-out infinite' }}>BATTLE</h1>
-            <p style={{ marginTop: 10, fontSize: 'clamp(5px, 1.3vw, 7px)', color: '#444', letterSpacing: 3, lineHeight: 2 }}>
-              UPLOAD YOUR NOTES.{' '}
-              <span style={{ color: '#FF0040', textShadow: '0 0 4px #FF004088' }}>FACE YOUR NEMESIS.</span>
+            <h1 style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 34px)', letterSpacing: 6, color: C.text, animation: 'titlePulse 3s ease-in-out infinite' }}>BATTLE</h1>
+            <p style={{ marginTop: 10, fontSize: 'clamp(5px, 1.3vw, 7px)', color: C.textDim, letterSpacing: 3, lineHeight: 2 }}>
+              UPLOAD YOUR NOTES. FACE YOUR NEMESIS.
             </p>
           </div>
 
-          <div style={{ width: '100%', height: 2, background: 'linear-gradient(90deg, transparent 0%, #FF0040 20%, #FFD700 50%, #FF0040 80%, transparent 100%)', boxShadow: '0 0 8px #FFD70055' }} />
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
 
-          {/* Enemy panel */}
-          <div style={{
-            width: '100%', padding: '14px 16px',
-            border: '1px solid #FF004033', backgroundColor: '#0d0000', position: 'relative',
-          }}>
-            <PixelCorner pos="tl" color="#FF0040" /><PixelCorner pos="tr" color="#FF0040" />
-            <PixelCorner pos="bl" color="#FF0040" /><PixelCorner pos="br" color="#FF0040" />
-            <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: '#FF004066', letterSpacing: 3, marginBottom: 10 }}>── ENEMY ──────────────────────────</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 'clamp(7px, 1.8vw, 10px)', color: '#FF3333', letterSpacing: 2, textShadow: '0 0 6px #FF333388' }}>???_NEMESIS</div>
-                <HpBar label="HP" value={999} max={999} color="#FF0040" />
-                <HpBar label="MP" value={750} max={999} color="#bf00ff" />
-              </div>
-              <BossIcon active={!!file} />
-            </div>
-          </div>
-
-          <UploadZone onFile={handleFile} />
+          <UploadZone onFiles={handleFiles} />
 
           {error && (
-            <div style={{ fontSize: 'clamp(5px, 1.3vw, 7px)', color: '#FF0040', textAlign: 'center', letterSpacing: 1 }}>
+            <div style={{ fontSize: 'clamp(5px, 1.3vw, 7px)', color: C.red, textAlign: 'center', letterSpacing: 1 }}>
               ⚠ {error}
             </div>
           )}
 
-          <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: '#333', letterSpacing: 2, textAlign: 'center' }}>
+          <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, textAlign: 'center' }}>
             BEST WITH 5–50 PAGES · PDF FORMAT ONLY
           </div>
 
-          <div style={{ width: '100%', height: 1, background: 'linear-gradient(90deg, transparent, #FFD70033, transparent)' }} />
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
 
-          {file ? (
-            <button
-              style={{
-                fontFamily: 'var(--font-pixel), monospace',
-                fontSize: 'clamp(8px, 2vw, 12px)', letterSpacing: 3,
-                color: btnHover ? '#000' : '#FF0040',
-                backgroundColor: btnHover ? '#FF0040' : 'transparent',
-                border: '2px solid #FF0040', padding: '16px 40px', cursor: 'pointer',
-                textShadow: btnHover ? 'none' : '0 0 8px #FF0040',
-                transition: 'all 0.12s ease',
-                animation: btnHover ? 'none' : 'btnReady 1.4s ease-in-out infinite',
-              }}
-              onMouseEnter={() => setBtnHover(true)}
-              onMouseLeave={() => setBtnHover(false)}
-              onClick={() => setLoading(true)}
-            >
-              ► BEGIN BATTLE ◄
-            </button>
+          {files.length > 0 ? (
+            <PixelButton color={C.accent} onClick={() => setLoading(true)}>
+              ► GO TO BATTLE ◄
+            </PixelButton>
           ) : (
-            <div style={{ fontSize: 'clamp(8px, 2.2vw, 13px)', color: '#FFD700', letterSpacing: 4, animation: 'insertCoin 1.1s step-start infinite', textShadow: '0 0 10px #FFD700' }}>
+            <div style={{ fontSize: 'clamp(8px, 2.2vw, 13px)', color: C.gold, letterSpacing: 4, animation: 'insertCoin 1.1s step-start infinite' }}>
               ─ INSERT COIN ─
             </div>
           )}
