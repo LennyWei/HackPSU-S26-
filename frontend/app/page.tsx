@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useGame } from '@/context/GameContext'
 import { uploadPDF } from '@/lib/api'
 import PixelButton from '@/components/ui/pixel-hover-effect'
-import PixelGridBg from '@/components/ui/pixel-grid-bg'
+import CosmicStarfield, { CosmicStarfieldHandle } from '@/components/ui/cosmic-starfield'
 
 /* palette */
 const C = {
-  bg:      '#080c10',
+  bg:      '#08051a',
   panel:   '#0e1318',
   border:  '#2a3340',
   borderHi:'#4a6070',
@@ -195,7 +195,7 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'var(--font-pixel), monospace', position: 'relative', overflow: 'hidden',
     }}>
-      <PixelGridBg />
+      <CosmicStarfield />
       <div style={{
         position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
         backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.10) 2px, rgba(0,0,0,0.10) 4px)',
@@ -225,10 +225,12 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
    HOME PAGE
 ───────────────────────────────────────────── */
 export default function Home() {
-  const router = useRouter()
+  const router    = useRouter()
+  const cosmicRef = useRef<CosmicStarfieldHandle>(null)
   const [files, setFiles]         = useState<File[]>([])
   const [pdfBase64, setPdfBase64] = useState<string | null>(null)
   const [loading, setLoading]     = useState(false)
+  const [warping, setWarping]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
 
   const handleFiles = (incoming: File[]) => {
@@ -286,7 +288,7 @@ export default function Home() {
         position: 'relative', overflow: 'hidden',
         fontFamily: 'var(--font-pixel), monospace',
       }}>
-        <PixelGridBg />
+        <CosmicStarfield ref={cosmicRef} />
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
           backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
@@ -299,6 +301,11 @@ export default function Home() {
         {/* Main panel */}
         <div style={{
           position: 'relative', zIndex: 3,
+          transform: warping ? 'scale(25)' : 'scale(1)',
+          opacity:   warping ? 0 : 1,
+          transition: warping
+            ? 'transform 0.75s cubic-bezier(0.4, 0, 1, 1), opacity 0.75s ease-in'
+            : 'none',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', gap: 16,
           padding: '32px 28px',
@@ -335,7 +342,11 @@ export default function Home() {
           <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
 
           {files.length > 0 ? (
-            <PixelButton color={C.accent} onClick={() => setLoading(true)}>
+            <PixelButton color={C.accent} onClick={() => {
+              cosmicRef.current?.triggerWarp()
+              setWarping(true)
+              setTimeout(() => setLoading(true), 750)
+            }}>
               ► GO TO BATTLE ◄
             </PixelButton>
           ) : (
