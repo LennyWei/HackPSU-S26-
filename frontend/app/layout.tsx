@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Press_Start_2P } from 'next/font/google'
+import { GameProvider } from '@/context/GameContext'
 
 const pressStart = Press_Start_2P({
   weight: '400',
@@ -13,14 +14,12 @@ export const metadata: Metadata = {
   description: 'Upload your notes. Face your nemesis.',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={pressStart.variable}>
-      <body style={{ margin: 0, background: '#000' }}>{children}</body>
+      <body style={{ margin: 0, background: '#050505' }}>
+        <GameProvider>{children}</GameProvider>
+      </body>
     </html>
   )
 }
