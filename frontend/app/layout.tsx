@@ -18,7 +18,7 @@ const shareTech = Share_Tech_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Study Boss Battle',
+  title: 'Brain Brawl',
   description: 'Upload your notes. Face your nemesis.',
 }
 

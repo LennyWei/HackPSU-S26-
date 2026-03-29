@@ -698,14 +698,37 @@ function BattleUI() {
     }
   }, [])
 
+  useEffect(() => {
+    const playerIn = window.setTimeout(() => {
+      setPlayerX(0)
+    }, 0)
+
+    const bossIn = window.setTimeout(() => {
+      setBossX(0)
+    }, 120)
+
+    const cleanup = window.setTimeout(() => {
+      setPlayerTransStyle('none')
+      setBossTransStyle('none')
+    }, 320)
+
+    return () => {
+      window.clearTimeout(playerIn)
+      window.clearTimeout(bossIn)
+      window.clearTimeout(cleanup)
+    }
+  }, [])
+
 
   // ── Player animation ──
   const [playerFrames, setPlayerFrames] = useState(IDLE_FRAMES)
   const [playerFrameKey, setPlayerFrameKey] = useState(0)
   const [playerFrameRate, setPlayerFrameRate] = useState(100)
-  const [playerX, setPlayerX] = useState(0)
-  const [playerTransStyle, setPlayerTransStyle] = useState('none')
+  const [playerX, setPlayerX] = useState(-180)
+  const [playerTransStyle, setPlayerTransStyle] = useState('transform 0.22s ease-out')
   const [playerFlipped, setPlayerFlipped] = useState(false)
+  const [bossX, setBossX] = useState(180)
+  const [bossTransStyle, setBossTransStyle] = useState('transform 0.22s ease-out')
   const attackVariantRef = useRef<1 | 2>(1)
 
   // ── Item slot hover ──
@@ -1054,9 +1077,28 @@ function BattleUI() {
             <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" height={10} />
           </div>
 
+          <div style={{
+            position: 'absolute', top: 14, right: 14, zIndex: 5,
+            width: 220, textAlign: 'right'
+          }}>
+            <div style={{
+              fontSize: 'clamp(8px, 1vw, 11px)', color: '#ffffff', letterSpacing: 2,
+              textShadow: '0 0 8px #00000066', marginBottom: 4,
+              fontFamily: 'var(--font-pixel), monospace'
+            }}>
+              BOSS {game.currentBossIndex + 1}/{game.totalBosses}
+            </div>
+            <div style={{
+              fontSize: 'clamp(7px, 0.9vw, 10px)', color: '#FFD700', letterSpacing: 2,
+              textShadow: '0 0 8px #00000066', fontFamily: 'var(--font-pixel), monospace'
+            }}>
+              STREAK {combat.state.correctStreak ?? 0}
+            </div>
+          </div>
+
 
           {/* Boss sprite — unified component handling idle, swoop, and shake */}
-          <div ref={bossRef} style={{ position: 'absolute', right: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 5 }}>
+          <div ref={bossRef} style={{ position: 'absolute', right: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 5, transform: `translateX(${bossX}px)`, transition: bossTransStyle }}>
             <BossSprite
               ref={bossAnimRef}
               spriteSet={bossSpriteSet}
@@ -1320,126 +1362,131 @@ function BattleUI() {
                   ) : (
                     /* MCQ Variant */
                     <>
-                      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
-                        {choices.map((choice, i) => {
-                          const isSel = state.selectedAnswer === choice.id
-                          const isCorr = choice.id === q.correctAnswerId
-                          const isDis = !isActive
-                          const hasExp = !!(isExplanation && q.explanations && q.explanations[choice.id])
-                          const isOpen = openExps.includes(choice.id)
+                      <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
+                        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+                          {choices.map((choice, i) => {
+                            const isSel = state.selectedAnswer === choice.id
+                            const isCorr = choice.id === q.correctAnswerId
+                            const isDis = !isActive
+                            const hasExp = !!(isExplanation && q.explanations && q.explanations[choice.id])
+                            const isOpen = openExps.includes(choice.id)
 
-                          let bg = '#08101a', border = '#00b7ff66', color = '#b8f3ff', badgeBg = '#00f0ff22'
-                          if (isReveal || isExplanation) {
-                            if (isCorr) { bg = '#002714'; border = '#39FF14'; color = '#99ff99'; badgeBg = '#39FF1433' }
-                            else if (isSel) { bg = '#300006'; border = '#FF0040'; color = '#ff7a95'; badgeBg = '#FF004033' }
-                            else { bg = '#0c0c0c'; border = '#444444'; color = '#888888'; badgeBg = '#222222' }
-                          } else if (isSel) {
-                            bg = '#221900'; border = '#FFD700'; color = '#FFD700'; badgeBg = '#FFD70033'
-                          }
+                            let bg = '#08101a', border = '#00b7ff66', color = '#b8f3ff', badgeBg = '#00f0ff22'
+                            if (isReveal || isExplanation) {
+                              if (isCorr) { bg = '#002714'; border = '#39FF14'; color = '#99ff99'; badgeBg = '#39FF1433' }
+                              else if (isSel) { bg = '#300006'; border = '#FF0040'; color = '#ff7a95'; badgeBg = '#FF004033' }
+                              else { bg = '#0c0c0c'; border = '#444444'; color = '#888888'; badgeBg = '#222222' }
+                            } else if (isSel) {
+                              bg = '#221900'; border = '#FFD700'; color = '#FFD700'; badgeBg = '#FFD70033'
+                            }
 
-                          return (
-                            <div key={choice.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, height: '100%', minHeight: 0 }}>
-                              <button
-                                className={`pixel-corners ${isActive && !isSel ? 'retro-hover-cyan' : ''}`}
-                                onClick={() => combat.selectAnswer(choice.id)}
-                                disabled={isDis}
-                                data-sfx-press="angelichum.wav"
-                                data-sfx-volume="0.5"
-                                data-sfx-min-rate="0.9"
-                                data-sfx-max-rate="1.1"
-                                style={{
-                                  flex: 1,
-                                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-                                  justifyContent: 'space-between',
-                                  backgroundColor: bg, border: `2px solid ${border}`, color,
-                                  padding: '18px 16px', cursor: isDis ? 'default' : 'pointer',
-                                  fontFamily: 'var(--font-mono), monospace',
-                                  fontSize: 'clamp(14px, 2vw, 20px)', textAlign: 'left',
-                                  minHeight: 100, lineHeight: 1.55, transition: 'all 0.15s',
-                                  overflowY: 'auto'
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
-                                  <span style={{
-                                    padding: '4px 8px', backgroundColor: badgeBg,
-                                    fontFamily: 'var(--font-pixel), monospace', fontSize: '11px',
-                                    letterSpacing: 1, whiteSpace: 'nowrap'
-                                  }}>
-                                    [{['A','B','C','D'][i]}]
-                                  </span>
-                                  <span style={{ display: 'block', flex: 1, fontSize: 'clamp(14px, 2vw, 20px)', lineHeight: 1.55, color }}>
-                                    {choice.text}
-                                  </span>
-                                </div>
-                              </button>
-                              {/* The WHY dropdown */}
-                              {hasExp && (
-                                <div className="pixel-corners" style={{ border: `2px solid ${border}`, backgroundColor: bg, marginTop: -4, flexShrink: 0 }}>
-                                  <button
-                                    onClick={() => setOpenExps(prev =>
-                                      prev.includes(choice.id)
-                                        ? prev.filter(id => id !== choice.id)
-                                        : [...prev, choice.id]
+                            return (
+                              <div key={choice.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, height: '100%', minHeight: 0 }}>
+                                <button
+                                  className={`pixel-corners ${isActive && !isSel ? 'retro-hover-cyan' : ''}`}
+                                  onClick={() => combat.selectAnswer(choice.id)}
+                                  disabled={isDis}
+                                  data-sfx-press="angelichum.wav"
+                                  data-sfx-volume="0.5"
+                                  data-sfx-min-rate="0.9"
+                                  data-sfx-max-rate="1.1"
+                                  style={{
+                                    flex: 1,
+                                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                                    justifyContent: 'space-between',
+                                    backgroundColor: bg, border: `2px solid ${border}`, color,
+                                    padding: '18px 16px', cursor: isDis ? 'default' : 'pointer',
+                                    fontFamily: 'var(--font-mono), monospace',
+                                    fontSize: 'clamp(14px, 2vw, 20px)', textAlign: 'left',
+                                    minHeight: 100, lineHeight: 1.55, transition: 'all 0.15s',
+                                    overflowY: 'auto'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                                    <span style={{
+                                      padding: '4px 8px', backgroundColor: badgeBg,
+                                      fontFamily: 'var(--font-pixel), monospace', fontSize: '11px',
+                                      letterSpacing: 1, whiteSpace: 'nowrap'
+                                    }}>
+                                      [{['A','B','C','D'][i]}]
+                                    </span>
+                                    <span style={{ display: 'block', flex: 1, fontSize: 'clamp(14px, 2vw, 20px)', lineHeight: 1.55, color }}>
+                                      {choice.text}
+                                    </span>
+                                  </div>
+                                </button>
+                                {/* The WHY dropdown */}
+                                {hasExp && (
+                                  <div className="pixel-corners" style={{ border: `2px solid ${border}`, backgroundColor: bg, marginTop: -4, flexShrink: 0 }}>
+                                    <button
+                                      onClick={() => setOpenExps(prev =>
+                                        prev.includes(choice.id)
+                                          ? prev.filter(id => id !== choice.id)
+                                          : [...prev, choice.id]
+                                      )}
+                                      style={{
+                                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '8px 12px', background: 'none', border: 'none',
+                                        cursor: 'pointer', fontFamily: 'var(--font-pixel), monospace', color
+                                      }}
+                                    >
+                                      <span style={{ fontSize: '8px', letterSpacing: 1 }}>WHY?</span>
+                                      <span style={{ fontSize: '8px' }}>{isOpen ? '▲' : '▼'}</span>
+                                    </button>
+                                    {isOpen && (
+                                      <div style={{ padding: '0 12px 12px 12px', fontSize: 'clamp(10px, 1.1vw, 13px)', color: '#99bbbb', lineHeight: 1.6, fontFamily: 'var(--font-mono), monospace' }}>
+                                        {q.explanations![choice.id]}
+                                      </div>
                                     )}
-                                    style={{
-                                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                      padding: '8px 12px', background: 'none', border: 'none',
-                                      cursor: 'pointer', fontFamily: 'var(--font-pixel), monospace', color
-                                    }}
-                                  >
-                                    <span style={{ fontSize: '8px', letterSpacing: 1 }}>WHY?</span>
-                                    <span style={{ fontSize: '8px' }}>{isOpen ? '▲' : '▼'}</span>
-                                  </button>
-                                  {isOpen && (
-                                    <div style={{ padding: '0 12px 12px 12px', fontSize: 'clamp(10px, 1.1vw, 13px)', color: '#99bbbb', lineHeight: 1.6, fontFamily: 'var(--font-mono), monospace' }}>
-                                      {q.explanations![choice.id]}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                      
-                      {/* MCQ Action Row */}
-                      <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
-                        <button 
-                          className="pixel-corners"
-                          onClick={() => combat.selectAnswer('')}
-                          disabled={!isActive || !state.selectedAnswer}
-                          style={{
-                            flex: 1, padding: '18px 16px',
-                            backgroundColor: '#1a0005', border: '2px solid #FF0040', color: '#FF0040',
-                            fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
-                            cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer'
-                          }}
-                        >CLEAR</button>
-                        {(isExplanation) ? (
-                          <button
-                            className="pixel-corners retro-hover-cyan"
-                            onClick={() => combat.explanationOK()}
-                            style={{
-                              flex: 2, padding: '18px 16px',
-                              backgroundColor: '#001a1a', border: '2px solid #00f0ff', color: '#00f0ff',
-                              fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
-                              cursor: 'pointer'
-                            }}
-                          >NEXT ►</button>
-                        ) : (
-                          <button
-                            className="pixel-corners retro-hover-gold"
-                            onClick={() => state.selectedAnswer && handleAnswer(state.selectedAnswer)}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 92, flexShrink: 0 }}>
+                          <button 
+                            className="pixel-corners"
+                            onClick={() => combat.selectAnswer('')}
                             disabled={!isActive || !state.selectedAnswer}
                             style={{
-                              flex: 2, padding: '16px',
-                              backgroundColor: '#1a1800', border: '2px solid #FFD700', color: '#FFD700',
-                              fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
+                              width: '100%', minHeight: 64, padding: '16px 0',
+                              backgroundColor: '#1a0005', border: '2px solid #FF0040', color: '#FF0040',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '18px',
                               cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer',
-                              transition: 'all 0.15s'
+                              textAlign: 'center'
                             }}
-                          >CAST ANSWER ►</button>
-                        )}
+                          >X</button>
+
+                          {(isExplanation) ? (
+                            <button
+                              className="pixel-corners retro-hover-cyan"
+                              onClick={() => combat.explanationOK()}
+                              style={{
+                                width: '100%', minHeight: 64, padding: '16px 0',
+                                backgroundColor: '#001a1a', border: '2px solid #00f0ff', color: '#00f0ff',
+                                fontFamily: 'var(--font-pixel), monospace', fontSize: '20px',
+                                cursor: 'pointer',
+                                textAlign: 'center'
+                              }}
+                            >►</button>
+                          ) : (
+                            <button
+                              className="pixel-corners retro-hover-gold"
+                              onClick={() => state.selectedAnswer && handleAnswer(state.selectedAnswer)}
+                              disabled={!isActive || !state.selectedAnswer}
+                              style={{
+                                width: '100%', minHeight: 64, padding: '16px 0',
+                                backgroundColor: '#1a1800', border: '2px solid #FFD700', color: '#FFD700',
+                                fontFamily: 'var(--font-pixel), monospace', fontSize: '20px',
+                                cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer',
+                                transition: 'all 0.15s',
+                                textAlign: 'center'
+                              }}
+                            >►</button>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
