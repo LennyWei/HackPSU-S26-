@@ -17,7 +17,7 @@ from models import KnowledgeGraph, Boss, Question, AnswerJudgment
 
 load_dotenv()
 _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-_MODEL  = "gemini-2.5-flash"
+_MODEL  = "gemini-2.5-flash-lite"
 
 
 # ---------------------------------------------------------------------------
