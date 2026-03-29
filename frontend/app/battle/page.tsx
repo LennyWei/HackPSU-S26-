@@ -882,6 +882,10 @@ function BattleUI() {
   const choices = q?.choices.filter(c => !state.eliminatedChoices.includes(c.id)) ?? []
   const recordedQuestionIndexRef = useRef<number | null>(null)
 
+  useEffect(() => {
+    recordedQuestionIndexRef.current = null
+  }, [state.questionIndex])
+
   const recordQuestionResult = (choiceId: string) => {
     if (!q) return
     if (recordedQuestionIndexRef.current === state.questionIndex) return
@@ -928,6 +932,7 @@ function BattleUI() {
       combat.submitFreeResponse(result.is_correct)
     } catch {
       setFrqResult({ explanation: q.explanation, bossDialogue: q.dialogue })
+      recordQuestionResult(frqText)
       combat.submitFreeResponse(false)
     } finally {
       setJudgingFrq(false)
@@ -1285,26 +1290,39 @@ function BattleUI() {
                         <button 
                           className="pixel-corners"
                           onClick={() => setFrqText('')}
-                          disabled={!isActive || judgingFrq || !frqText}
+                          disabled={!isActive || judgingFrq || !frqText || isExplanation}
                           style={{
                             flex: 1, padding: '14px',
                             backgroundColor: '#1a0005', border: '2px solid #FF0040', color: '#FF0040',
                             fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
-                            cursor: (!isActive || judgingFrq || !frqText) ? 'default' : 'pointer'
+                            cursor: (!isActive || judgingFrq || !frqText || isExplanation) ? 'default' : 'pointer'
                           }}
                         >ERASE</button>
-                        <button
-                          className="pixel-corners retro-hover-purple"
-                          onClick={handleFrqSubmit}
-                          disabled={!isActive || judgingFrq || !frqText.trim()}
-                          style={{
-                            flex: 2, padding: '14px',
-                            backgroundColor: '#100515', border: '2px solid #8A2BE2', color: '#8A2BE2',
-                            fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
-                            cursor: (!isActive || judgingFrq || !frqText.trim()) ? 'default' : 'pointer',
-                            transition: 'all 0.15s'
-                          }}
-                        >SUBMIT SCROLL ►</button>
+                        {isExplanation ? (
+                          <button
+                            className="pixel-corners retro-hover-cyan"
+                            onClick={() => combat.explanationOK()}
+                            style={{
+                              flex: 2, padding: '14px',
+                              backgroundColor: '#001a1a', border: '2px solid #00f0ff', color: '#00f0ff',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              cursor: 'pointer'
+                            }}
+                          >NEXT ►</button>
+                        ) : (
+                          <button
+                            className="pixel-corners retro-hover-purple"
+                            onClick={handleFrqSubmit}
+                            disabled={!isActive || judgingFrq || !frqText.trim()}
+                            style={{
+                              flex: 2, padding: '14px',
+                              backgroundColor: '#100515', border: '2px solid #8A2BE2', color: '#8A2BE2',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              cursor: (!isActive || judgingFrq || !frqText.trim()) ? 'default' : 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >SUBMIT SCROLL ►</button>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -1414,7 +1432,7 @@ function BattleUI() {
                         ) : (
                           <button
                             className="pixel-corners retro-hover-gold"
-                            onClick={() => state.selectedAnswer && combat.submitAnswer(state.selectedAnswer)}
+                            onClick={() => state.selectedAnswer && handleAnswer(state.selectedAnswer)}
                             disabled={!isActive || !state.selectedAnswer}
                             style={{
                               flex: 2, padding: '14px',

@@ -214,18 +214,17 @@ export default function TransitionPage() {
   useEffect(() => {
     if (tab !== 'victory') return
     setCountdown(12)
-    const interval = setInterval(() => {
-      setCountdown(c => {
-        if (c <= 1) {
-          clearInterval(interval)
-          clearLastBossResults()
-          router.push('/boss')
-          return 0
-        }
-        return c - 1
-      })
+    const intervalId = window.setInterval(() => {
+      setCountdown((c) => Math.max(c - 1, 0))
     }, 1000)
-    return () => clearInterval(interval)
+    const timeoutId = window.setTimeout(() => {
+      clearLastBossResults()
+      router.push('/boss')
+    }, 12000)
+    return () => {
+      clearInterval(intervalId)
+      clearTimeout(timeoutId)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
