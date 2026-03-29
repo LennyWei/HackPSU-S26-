@@ -13,6 +13,7 @@ interface ParallaxBackgroundProps {
   showOverlay?: boolean
   backgroundColor?: string
   pixelated?: boolean
+  position?: 'fixed' | 'absolute'
 }
 /**
  * ParallaxBackground Component
@@ -39,6 +40,7 @@ export default function ParallaxBackground({
   showOverlay = false,
   backgroundColor = 'transparent',
   pixelated = true,
+  position = 'fixed',
 }: ParallaxBackgroundProps) {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
@@ -64,7 +66,7 @@ export default function ParallaxBackground({
     <div
       ref={containerRef}
       style={{
-        position: 'fixed',
+        position,
         inset: 0,
         zIndex,
         overflow: 'hidden',

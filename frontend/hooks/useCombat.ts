@@ -83,7 +83,7 @@ function lerp(a: number, b: number, t: number) {
 export function scaleByDifficulty(difficulty: number) {
   const t = difficulty / 10
   return {
-    timeMs:              Math.round(lerp(60000, 30000, t)),
+    timeMs:              60000000/*Math.round(lerp(60000, 30000, t))*/,
     bossDamage:          Math.round(lerp(100, 250, t)),
     playerDamageWrong:   Math.round(lerp(200, 100, t)),
     playerDamageTimeout: Math.round(lerp(150, 80, t)),

@@ -19,6 +19,7 @@ interface TwinklingStarsProps {
   maxDuration?: number
   color?: string
   zIndex?: number
+  position?: 'fixed' | 'absolute'
 }
 
 /**
@@ -45,6 +46,7 @@ export default function TwinklingStars({
   maxDuration = 4,
   color = '#ffffff',
   zIndex = 1,
+  position = 'fixed',
 }: TwinklingStarsProps) {
   const [stars, setStars] = useState<Star[]>([])
 
@@ -67,7 +69,7 @@ export default function TwinklingStars({
   return (
     <div
       style={{
-        position: 'fixed',
+        position,
         inset: 0,
         zIndex,
         pointerEvents: 'none',
