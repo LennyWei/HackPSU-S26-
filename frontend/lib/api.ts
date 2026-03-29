@@ -178,10 +178,10 @@ export async function uploadPDF(pdfBase64: string): Promise<InitGameResponse> {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/upload`, {
+    const res = await fetch(`${API_BASE}/lobby/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdfBase64 }),
+      body: JSON.stringify({ pdf: pdfBase64 }),
     })
 
     if (!res.ok) {

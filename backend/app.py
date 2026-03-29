@@ -8,7 +8,7 @@ import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from game_engine import create_game, start_run, summon_boss, next_boss, get_session
-from gemini_pipeline import _model, _parse_json
+from gemini_pipeline import _client, _MODEL, _parse_json
 
 app = Flask(__name__)
 CORS(app)
@@ -135,18 +135,27 @@ Return ONLY valid JSON with no markdown fences:
     "id": "q_{os.urandom(4).hex()}",
     "dialogue": "In-character intro before asking the question (1-2 sentences)",
     "question_text": "The full question text",
-    "options": ["A) first option", "B) second option", "C) third option", "D) fourth option"],
-    "correct_answer": "A) the correct option (must match one of the options exactly)",
+    "options": [
+        {{"id": "A", "text": "first option"}},
+        {{"id": "B", "text": "second option"}},
+        {{"id": "C", "text": "third option"}},
+        {{"id": "D", "text": "fourth option"}}
+    ],
+    "correct_answer": "A",
+    "explanation": "Clear explanation of why the correct answer is right",
     "concept": "the specific concept being tested",
-    "difficulty_tier": {diff_tier},
-    "damage_on_correct": {10 * diff_tier + 20},
-    "damage_on_wrong": {5 * diff_tier + 10},
-    "time_limit_seconds": {max(20, 45 - diff_tier * 5)}
+    "difficulty": <integer 1-10 reflecting how hard this specific question is>,
+    "wrong_taunts": [
+        {{"answer": "A", "taunt": "in-character taunt mocking the player for choosing A (only include if A is wrong)"}},
+        {{"answer": "B", "taunt": "in-character taunt mocking the player for choosing B (only include if B is wrong)"}},
+        {{"answer": "C", "taunt": "in-character taunt mocking the player for choosing C (only include if C is wrong)"}},
+        {{"answer": "D", "taunt": "in-character taunt mocking the player for choosing D (only include if D is wrong)"}}
+    ]
 }}"""
 
     try:
-        response = _model.generate_content(prompt)
-        result = _parse_json(response.text)
+        response = _client.models.generate_content(model=_MODEL, contents=prompt)
+        result = _parse_json(response.text or "")
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -189,8 +198,8 @@ Rules:
 - If incorrect: damage=0,  playerDamage=20, scoreGained=0"""
 
     try:
-        response = _model.generate_content(prompt)
-        result = _parse_json(response.text)
+        response = _client.models.generate_content(model=_MODEL, contents=prompt)
+        result = _parse_json(response.text or "")
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
