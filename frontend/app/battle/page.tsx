@@ -1041,7 +1041,7 @@ function BattleUI() {
         {dmgNums.map(d => <DamageNumber key={d.id} dmg={d} bossRef={bossRef} playerRef={playerRef} />)}
 
         {/* ═══ SCENE ═══ */}
-        <div style={{ position: 'relative', zIndex: 1, height: '60vh', flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ position: 'relative', zIndex: 1, height: '55vh', flexShrink: 0, overflow: 'hidden' }}>
 
           <ParallaxBackground layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]} zIndex={0} showOverlay backgroundColor="#03030a" position="absolute" />
           <TwinklingStars count={90} minSize={1} maxSize={2} color="#ffffff" zIndex={1} position="absolute" />
@@ -1251,7 +1251,7 @@ function BattleUI() {
           <div style={{ height: 2, flexShrink: 0, background: 'linear-gradient(90deg, transparent, #FF004044 25%, #9933ff55 50%, #00f0ff44 75%, transparent)' }} />
 
           {/* Dialogue */}
-          <div style={{ padding: '16px 20px', flexShrink: 0, minHeight: 60, display: 'flex', alignItems: 'center', position: 'relative' }}>
+          <div style={{ padding: '10px 20px', flexShrink: 0, minHeight: 60, display: 'flex', alignItems: 'center', position: 'relative' }}>
             <p style={{
               margin: 0,
               fontSize: 'clamp(16px, 2vw, 22px)',
@@ -1267,16 +1267,16 @@ function BattleUI() {
           </div>
 
           {/* Splitted Content area */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: 20, padding: '0 20px 20px 20px', overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: 20, padding: '0 20px 12px 20px', overflow: 'hidden' }}>
             
             {(isActive || isReveal || isExplanation) && q ? (
               <>
                 {/* LEFT SIDE: Question scroll */}
                 <div className="pixel-corners" style={{
-                  flex: 1, minHeight: 0,
+                  flex: 0.818, minHeight: 0,
                   border: '2px solid #FFD700',
                   backgroundColor: '#0a0a05',
-                  padding: '20px',
+                  padding: '14px',
                   display: 'flex', flexDirection: 'column',
                   overflowY: 'auto'
                 }}>
@@ -1287,7 +1287,7 @@ function BattleUI() {
 
                 {/* RIGHT SIDE: Answers area */}
                 <div style={{
-                  flex: 1, minHeight: 0,
+                  flex: 1.0, minHeight: 0,
                   display: 'flex', flexDirection: 'column', gap: 16
                 }}>
                   {isFrq ? (
@@ -1297,7 +1297,7 @@ function BattleUI() {
                         flex: 1, minHeight: 0,
                         border: '2px solid #8A2BE2',
                         backgroundColor: '#100515',
-                        padding: '16px',
+                        padding: '12px',
                         display: 'flex', flexDirection: 'column',
                         position: 'relative'
                       }}>
