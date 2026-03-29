@@ -8,6 +8,7 @@ import { CombatProvider, useCombatContext } from '@/context/CombatContext'
 import { PHASES, CombatQuestion } from '@/hooks/useCombat'
 import ParallaxBackground from '@/components/ui/parallax-background'
 import TwinklingStars from '@/components/ui/twinkling-stars'
+import AnimatedSprite from '@/components/ui/animated-sprite'
 import Particles, { ParticlesHandle } from '@/components/ui/particles'
 import { useShake, ShakeStyles } from '@/hooks/useShake'
 
@@ -57,78 +58,7 @@ function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): Com
   }
 }
 
-// ─── Visual components (unchanged) ───────────────────────────────────────────
-
-const BOSS_GRID = [
-  [0,0,0,1,1,0,0,1,1,0,0,0],
-  [0,0,1,1,1,1,1,1,1,1,0,0],
-  [0,1,1,2,2,1,1,2,2,1,1,0],
-  [0,1,1,1,1,1,1,1,1,1,1,0],
-  [1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,2,1,1,1,1,1,1,1,1,2,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1],
-  [0,1,1,0,0,1,1,0,0,1,1,0],
-  [0,1,2,0,0,1,1,0,0,2,1,0],
-  [0,0,1,0,0,0,0,0,0,1,0,0],
-]
-
-function BossSprite({ flashing }: { flashing: boolean }) {
-  const body = flashing ? '#ffffff' : '#FF3333'
-  const eye  = flashing ? '#ffffff' : '#FFE000'
-  return (
-    <div style={{
-      lineHeight: 0,
-      animation: 'bossFloat 2s ease-in-out infinite',
-      filter: flashing ? 'brightness(4) saturate(0)' : 'drop-shadow(0 0 14px #FF333399) drop-shadow(0 0 30px #FF000044)',
-      transition: 'filter 0.1s',
-    }}>
-      {BOSS_GRID.map((row, r) => (
-        <div key={r} style={{ display: 'flex' }}>
-          {row.map((cell, c) => (
-            <div key={c} style={{
-              width: 14, height: 14,
-              backgroundColor: cell === 1 ? body : cell === 2 ? eye : 'transparent',
-              boxShadow: cell ? `0 0 4px ${body}55` : 'none',
-            }} />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-const PLAYER_GRID = [
-  [0,0,1,1,1,1,0,0],
-  [0,1,2,2,2,2,1,0],
-  [0,1,2,1,1,2,1,0],
-  [0,1,2,2,2,2,1,0],
-  [0,0,1,1,1,1,0,0],
-  [0,1,1,3,3,1,1,0],
-  [1,1,0,3,3,0,1,1],
-  [1,0,0,1,1,0,0,1],
-]
-
-function PlayerAvatar({ damaged }: { damaged: boolean }) {
-  return (
-    <div style={{
-      lineHeight: 0,
-      filter: damaged ? 'brightness(5) saturate(0)' : 'drop-shadow(0 0 10px #00f0ffaa) drop-shadow(0 0 22px #00f0ff44)',
-      transition: 'filter 0.15s',
-    }}>
-      {PLAYER_GRID.map((row, r) => (
-        <div key={r} style={{ display: 'flex' }}>
-          {row.map((cell, c) => (
-            <div key={c} style={{
-              width: 11, height: 11,
-              backgroundColor: cell === 1 ? '#00f0ff' : cell === 2 ? '#ffffff' : cell === 3 ? '#FFD700' : 'transparent',
-              boxShadow: cell ? '0 0 3px #00f0ff55' : 'none',
-            }} />
-          ))}
-        </div>
-      ))}
-    </div>
-  )
-}
+// ─── Visual components ───────────────────────────────────────────────────────
 
 function HpBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = Math.max(0, (value / max) * 100)
@@ -365,16 +295,32 @@ function BattleUI() {
 
       <div style={{ height: '100vh', width: '100vw', backgroundColor: '#03030a', fontFamily: 'var(--font-pixel), monospace', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }} className={shakeClass}>
 
-        <ParallaxBackground layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]} zIndex={0} showOverlay backgroundColor="#03030a" />
-        <TwinklingStars count={90} minSize={1} maxSize={2} color="#ffffff" zIndex={1} />
-        <ParallaxBackground layers={[{ imagePath: '/images/planets.png', parallaxIntensity: 10 }]} zIndex={2} showOverlay={false} />
-
-        <div style={{ position: 'fixed', inset: 0, zIndex: 3, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)', animation: 'scanlines 0.1s linear infinite' }} />
-
         {dmgNums.map(d => <DamageNumber key={d.id} dmg={d} bossRef={bossRef} playerRef={playerRef} />)}
 
-        {/* ═══ ARENA ═══ */}
-        <div style={{ position: 'relative', zIndex: 4, height: '58vh', flexShrink: 0, overflow: 'hidden' }}>
+        {/* ═══ SCENE (TOP) ═══ */}
+        <div style={{ position: 'relative', zIndex: 1, height: '60vh', flexShrink: 0, overflow: 'hidden' }}>
+
+          <ParallaxBackground layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]} zIndex={0} showOverlay backgroundColor="#03030a" position="absolute" />
+          <TwinklingStars count={90} minSize={1} maxSize={2} color="#ffffff" zIndex={1} position="absolute" />
+          <ParallaxBackground layers={[{ imagePath: '/images/planets.png', parallaxIntensity: 10 }]} zIndex={2} showOverlay={false} position="absolute" />
+
+          <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)', animation: 'scanlines 0.1s linear infinite' }} />
+
+          {/* Ground layer */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 4, height: '34%', pointerEvents: 'none' }}>
+            <img
+              src="/images/ground.png"
+              alt="ground"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center bottom',
+                imageRendering: 'pixelated',
+                display: 'block',
+              }}
+            />
+          </div>
 
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', background: 'linear-gradient(to bottom, transparent, #0a0015aa)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: '28%', left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #6633ff33 25%, #9966ff55 50%, #6633ff33 75%, transparent)' }} />
@@ -404,15 +350,55 @@ function BattleUI() {
           </div>
 
           {/* Boss sprite */}
-          <div ref={bossRef} style={{ position: 'absolute', right: '12%', top: '10%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <BossSprite flashing={bossFlashing} />
-            <div style={{ width: 100, height: 8, borderRadius: '50%', background: 'radial-gradient(ellipse, #FF333322 0%, transparent 70%)' }} />
+          <div ref={bossRef} style={{ position: 'absolute', right: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 5 }}>
+            <div
+              style={{
+                filter: bossFlashing ? 'brightness(4) saturate(0)' : 'drop-shadow(0 0 14px #FF333399) drop-shadow(0 0 30px #FF000044)',
+                transition: 'filter 0.1s',
+                animation: 'bossFloat 2s ease-in-out infinite',
+              }}
+            >
+              <AnimatedSprite
+                framePaths={[
+                  '/images/bat/idle_0.png',
+                  '/images/bat/idle_1.png',
+                  '/images/bat/idle_2.png',
+                  '/images/bat/idle_3.png',
+                  '/images/bat/idle_4.png',
+                  '/images/bat/idle_5.png',
+                  '/images/bat/idle_6.png',
+                  '/images/bat/idle_7.png',
+                  '/images/bat/idle_8.png',
+                ]}
+                width={256 * 0.75}
+                height={256* 0.75}
+                frameRate={100}
+              />
+            </div>
+            <div style={{ width: 100, height: 8, borderRadius: '50%', background: 'radial-gradient(ellipse, #1802025d 0%, transparent 70%)' }} />
           </div>
 
           {/* Player sprite */}
-          <div ref={playerRef} style={{ position: 'absolute', left: '10%', bottom: '22%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <PlayerAvatar damaged={playerDamaged} />
-            <div style={{ width: 70, height: 6, borderRadius: '50%', background: 'radial-gradient(ellipse, #00f0ff1a 0%, transparent 70%)' }} />
+          <div ref={playerRef} style={{ position: 'absolute', left: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, zIndex: 5 }}>
+            <div
+              style={{
+                filter: playerDamaged ? 'brightness(5) saturate(0)' : 'drop-shadow(0 0 10px #00f0ffaa) drop-shadow(0 0 22px #00f0ff44)',
+                transition: 'filter 0.15s',
+              }}
+            >
+              <AnimatedSprite
+                framePaths={[
+                  '/images/player/idle-1.png',
+                  '/images/player/idle-2.png',
+                  '/images/player/idle-3.png',
+                  '/images/player/idle-4.png',
+                ]}
+                width={256*}
+                height={256/4* }
+                frameRate={100}
+              />
+            </div>
+            <div style={{ width: 70, height: 6, borderRadius: '50%', background: 'radial-gradient(ellipse, #0312137b 0%, transparent 70%)' }} /> {/* subtle glow under player feet */}
           </div>
 
           {/* Player HP card */}
@@ -425,8 +411,8 @@ function BattleUI() {
           </div>
         </div>
 
-        {/* ═══ BATTLE MENU ═══ */}
-        <div style={{ position: 'relative', zIndex: 4, flex: 1, minHeight: 0, borderTop: '1px solid #ffffff0a', backgroundColor: '#02020899', backdropFilter: 'blur(6px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* ═══ BATTLE MENU (BOTTOM) ═══ */}
+        <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0, borderTop: '1px solid #ffffff14', backgroundColor: '#05050d', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* Timer bar */}
           <div style={{ height: 3, flexShrink: 0, backgroundColor: '#0a0a0a' }}>
