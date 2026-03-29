@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["python", "-u", "app.py"]
+CMD ["sh", "-c", "python -u app.py 2>&1"]
