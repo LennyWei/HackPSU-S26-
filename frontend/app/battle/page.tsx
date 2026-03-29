@@ -12,6 +12,77 @@ import AnimatedSprite from '@/components/ui/animated-sprite'
 import Particles, { ParticlesHandle } from '@/components/ui/particles'
 import { useShake, ShakeStyles } from '@/hooks/useShake'
 
+interface BossSpriteSet {
+  id: string
+  framePaths: string[]
+  frameRate: number
+  width: number
+  height: number
+}
+
+type SpriteShakeIntensity = 'light' | 'medium' | 'heavy'
+
+const SCREEN_SHAKE_INTENSITY: 'light' | 'medium' | 'heavy' = 'light'
+const SPRITE_SHAKE_INTENSITY: SpriteShakeIntensity = 'medium'
+
+function getSpriteShakeAnimation(intensity: SpriteShakeIntensity): string {
+  if (intensity === 'light') return 'spriteShakeLight 0.18s ease-in-out'
+  if (intensity === 'heavy') return 'spriteShakeHeavy 0.3s ease-in-out'
+  return 'spriteShakeMedium 0.24s ease-in-out'
+}
+
+function getSpriteShakeDurationMs(intensity: SpriteShakeIntensity): number {
+  if (intensity === 'light') return 180
+  if (intensity === 'heavy') return 300
+  return 240
+}
+
+// Add more boss animation sets here as you create them in /public/images.
+// Example ids: 'slime-idle', 'robot-idle', 'dragon-idle'.
+const BOSS_SPRITE_POOLS: BossSpriteSet[] = [
+  {
+    id: 'bat',
+    framePaths: [
+      '/images/bat/idle_0.png',
+      '/images/bat/idle_1.png',
+      '/images/bat/idle_2.png',
+      '/images/bat/idle_3.png',
+      '/images/bat/idle_4.png',
+      '/images/bat/idle_5.png',
+      '/images/bat/idle_6.png',
+      '/images/bat/idle_7.png',
+      '/images/bat/idle_8.png',
+    ],
+    frameRate: 100,
+    width: 256 * 0.75,
+    height: 256 * 0.75,
+  },
+  {
+    id: 'golem',
+    framePaths: [
+      '/images/golem/golem_0.png',
+      '/images/golem/golem_1.png',
+      '/images/golem/golem_2.png',
+      '/images/golem/golem_3.png',
+    ],
+    frameRate: 200,
+    width: 256 * 0.75,
+    height: 256 * 0.75,
+  },
+  {
+    id: 'demon',
+    framePaths: [
+      '/images/demon/demon0.png',
+      '/images/demon/demon1.png',
+      '/images/demon/demon2.png',
+      '/images/demon/demon3.png',
+    ],
+    frameRate: 150,
+    width: 256,
+    height: 256,
+  }
+]
+
 // ─── Question adapter ─────────────────────────────────────────────────────────
 
 function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
@@ -105,12 +176,36 @@ function DamageNumber({ dmg, bossRef, playerRef }: { dmg: DmgNum; bossRef: React
 
 // ─── Outer page: pre-fetch questions, wrap with CombatProvider ────────────────
 
+const MOCK_BOSS = {
+  clusterId: 'mock',
+  name: 'Debug Bot',
+  personality: 'robotic',
+  backstory: 'A test enemy.',
+  opening_monologue: 'Initiating debug sequence!',
+  taunts: {},
+  sprite_category: 'bat',
+  max_hp: 100,
+}
+
+const MOCK_CLUSTER = {
+  clusterId: 'mock',
+  clusterName: 'Mock Concepts',
+  concepts: [
+    { id: 'c1', name: 'Arrays', summary: 'Lists of items', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
+    { id: 'c2', name: 'Loops', summary: 'Repeat code', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
+  ],
+}
+
 export default function BattlePage() {
   const game = useGame()
   const [questions, setQuestions] = useState<CombatQuestion[] | null>(null)
   const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
+    if (!game.currentBoss && process.env.NEXT_PUBLIC_MOCK === 'true') {
+      game.initGame([MOCK_CLUSTER], [MOCK_BOSS])
+      return
+    }
     if (!game.currentBoss) return
     let cancelled = false
 
@@ -145,7 +240,18 @@ export default function BattlePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentBoss])
 
-  if (!game.currentBoss) return null
+  if (!game.currentBoss) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#777', padding: 24, textAlign: 'center', lineHeight: 1.8 }}>
+        <div>
+          <div>Battle state not initialized yet.</div>
+          <div style={{ marginTop: 8, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#555' }}>
+            NEXT_PUBLIC_MOCK runtime value: {String(process.env.NEXT_PUBLIC_MOCK)}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (fetchError) {
     return (
@@ -183,7 +289,10 @@ function BattleUI() {
 
   const [bossFlashing,   setBossFlashing]   = useState(false)
   const [playerDamaged,  setPlayerDamaged]  = useState(false)
+  const [bossSpriteShaking, setBossSpriteShaking] = useState(false)
+  const [playerSpriteShaking, setPlayerSpriteShaking] = useState(false)
   const [dmgNums,        setDmgNums]        = useState<DmgNum[]>([])
+  const [bossSpriteSet,  setBossSpriteSet]  = useState<BossSpriteSet>(BOSS_SPRITE_POOLS[0])
 
   const { shakeClass, triggerShake } = useShake()
   const dmgIdRef      = useRef(0)
@@ -191,6 +300,21 @@ function BattleUI() {
   const playerRef     = useRef<HTMLDivElement>(null)
   const particlesRef  = useRef<ParticlesHandle>(null)
   const revealFiredRef = useRef(false)
+
+  useEffect(() => {
+    if (BOSS_SPRITE_POOLS.length === 0) return
+
+    const storageKey = 'last-boss-sprite-set-id'
+    const prevId = typeof window !== 'undefined' ? window.sessionStorage.getItem(storageKey) : null
+    const candidatePools = BOSS_SPRITE_POOLS.filter(pool => pool.id !== prevId)
+    const pools = candidatePools.length > 0 ? candidatePools : BOSS_SPRITE_POOLS
+    const chosen = pools[Math.floor(Math.random() * pools.length)]
+
+    setBossSpriteSet(chosen)
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(storageKey, chosen.id)
+    }
+  }, [game.currentBossIndex])
 
   const addDmg = (value: number, color: string, side: 'boss' | 'player') => {
     const id = dmgIdRef.current++
@@ -206,17 +330,21 @@ function BattleUI() {
 
     if (combat.state.isCorrect) {
       setBossFlashing(true)
+      setBossSpriteShaking(true)
       addDmg(combat.state.bossDamageOnCorrect, '#39FF14', 'boss')
       const r = bossRef.current?.getBoundingClientRect()
       if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#39FF14', '#00f0ff', '#ffffff'], count: 36, speed: 7, gravity: 0.25, size: 5 })
       setTimeout(() => setBossFlashing(false), 300)
+      setTimeout(() => setBossSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     } else {
       setPlayerDamaged(true)
+      setPlayerSpriteShaking(true)
       addDmg(combat.state.playerDamageOnWrong, '#FF0040', 'player')
-      triggerShake({ intensity: 'heavy' })
+      triggerShake({ intensity: SCREEN_SHAKE_INTENSITY })
       const r = playerRef.current?.getBoundingClientRect()
       if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#FF0040', '#ff6644', '#ffaa00'], count: 28, speed: 5, angle: -Math.PI / 2, spread: Math.PI, gravity: 0.3, size: 4 })
       setTimeout(() => setPlayerDamaged(false), 500)
+      setTimeout(() => setPlayerSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     }
 
     const t = setTimeout(() => combat.revealComplete(), 1500)
@@ -254,6 +382,33 @@ function BattleUI() {
   const { state } = combat
   const q         = state.currentQuestion
   const choices   = q?.choices.filter(c => !state.eliminatedChoices.includes(c.id)) ?? []
+  const recordedQuestionIndexRef = useRef<number | null>(null)
+
+  const recordQuestionResult = (choiceId: string) => {
+    if (!q) return
+    if (recordedQuestionIndexRef.current === state.questionIndex) return
+    recordedQuestionIndexRef.current = state.questionIndex
+
+    const answerText = q.choices.find(c => c.id === choiceId)?.text ?? choiceId
+    const correct = choiceId === q.correctAnswerId
+    const shieldActive = state.activeEffects.some(e => e.type === 'shield')
+
+    game.addQuestionResult({
+      question: q.question_text,
+      playerAnswer: answerText,
+      correct,
+      explanation: q.explanation,
+      conceptName: q.concept,
+      damage: correct ? state.bossDamageOnCorrect : 0,
+      playerDamage: correct ? 0 : (shieldActive ? 0 : state.playerDamageOnWrong),
+    })
+  }
+
+  const handleAnswer = (choiceId: string) => {
+    if (!isActive || !q) return
+    recordQuestionResult(choiceId)
+    combat.submitAnswer(choiceId)
+  }
 
   const isActive      = state.phase === PHASES.ACTIVE
   const isReveal      = state.phase === PHASES.REVEAL
@@ -286,6 +441,30 @@ function BattleUI() {
         @keyframes resultPop { 0%{transform:scale(0.6);opacity:0} 65%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
         @keyframes scanlines { 0%{background-position:0 0} 100%{background-position:0 4px} }
         @keyframes fadeSlideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spriteShakeLight {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-2px, 0); }
+          40%  { transform: translate(2px, 0); }
+          60%  { transform: translate(-1px, 0); }
+          80%  { transform: translate(1px, 0); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes spriteShakeMedium {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-4px, 0); }
+          40%  { transform: translate(4px, 0); }
+          60%  { transform: translate(-3px, 0); }
+          80%  { transform: translate(3px, 0); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes spriteShakeHeavy {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-7px, 0); }
+          40%  { transform: translate(7px, 0); }
+          60%  { transform: translate(-5px, 0); }
+          80%  { transform: translate(5px, 0); }
+          100% { transform: translate(0, 0); }
+        }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes choicePulse { 0%,100%{box-shadow:0 0 0 transparent} 50%{box-shadow:0 0 10px #00f0ff44} }
         @keyframes timerPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
@@ -358,22 +537,14 @@ function BattleUI() {
                 animation: 'bossFloat 2s ease-in-out infinite',
               }}
             >
-              <AnimatedSprite
-                framePaths={[
-                  '/images/bat/idle_0.png',
-                  '/images/bat/idle_1.png',
-                  '/images/bat/idle_2.png',
-                  '/images/bat/idle_3.png',
-                  '/images/bat/idle_4.png',
-                  '/images/bat/idle_5.png',
-                  '/images/bat/idle_6.png',
-                  '/images/bat/idle_7.png',
-                  '/images/bat/idle_8.png',
-                ]}
-                width={256 * 0.75}
-                height={256* 0.75}
-                frameRate={100}
-              />
+              <div style={{ animation: bossSpriteShaking ? getSpriteShakeAnimation(SPRITE_SHAKE_INTENSITY) : 'none' }}>
+                <AnimatedSprite
+                  framePaths={bossSpriteSet.framePaths}
+                  width={bossSpriteSet.width}
+                  height={bossSpriteSet.height}
+                  frameRate={bossSpriteSet.frameRate}
+                />
+              </div>
             </div>
             <div style={{ width: 100, height: 8, borderRadius: '50%', background: 'radial-gradient(ellipse, #1802025d 0%, transparent 70%)' }} />
           </div>
@@ -386,17 +557,19 @@ function BattleUI() {
                 transition: 'filter 0.15s',
               }}
             >
-              <AnimatedSprite
-                framePaths={[
-                  '/images/player/idle-1.png',
-                  '/images/player/idle-2.png',
-                  '/images/player/idle-3.png',
-                  '/images/player/idle-4.png',
-                ]}
-                width={256}
-                height={64}
-                frameRate={100}
-              />
+              <div style={{ animation: playerSpriteShaking ? getSpriteShakeAnimation(SPRITE_SHAKE_INTENSITY) : 'none' }}>
+                <AnimatedSprite
+                  framePaths={[
+                    '/images/player/idle-1.png',
+                    '/images/player/idle-2.png',
+                    '/images/player/idle-3.png',
+                    '/images/player/idle-4.png',
+                  ]}
+                  width={256}
+                  height={64}
+                  frameRate={100}
+                />
+              </div>
             </div>
             <div style={{ width: 70, height: 6, borderRadius: '50%', background: 'radial-gradient(ellipse, #0312137b 0%, transparent 70%)' }} /> {/* subtle glow under player feet */}
           </div>
@@ -499,7 +672,7 @@ function BattleUI() {
                     return (
                       <button
                         key={choice.id}
-                        onClick={() => isActive && combat.submitAnswer(choice.id)}
+                        onClick={() => handleAnswer(choice.id)}
                         disabled={isDisabled}
                         style={{
                           fontFamily: 'var(--font-pixel), monospace',
