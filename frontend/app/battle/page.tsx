@@ -14,19 +14,19 @@ import { useShake, ShakeStyles } from '@/hooks/useShake'
 // ─── Question adapter ─────────────────────────────────────────────────────────
 
 function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
-  const options = (raw.options as string[]) ?? []
-  const choices = options.map(opt => ({ id: opt.charAt(0), text: opt.slice(3).trim() }))
-  const correct  = (raw.correct_answer as string) ?? ''
-  const tier     = (raw.difficulty_tier as number) ?? 2
+  const options = (raw.options as Array<{ id: string; text: string }>) ?? []
+  const choices = options.map(opt => ({ id: opt.id, text: opt.text }))
+  const correct = (raw.correct_answer as string) ?? ''
   return {
     id:              (raw.id as string) ?? `q_${Math.random().toString(36).slice(2)}`,
-    difficulty:      (tier - 1) * 4,
+    difficulty:      (raw.difficulty as number) ?? 5,
     question_text:   (raw.question_text as string) ?? '',
     dialogue:        (raw.dialogue as string) ?? '',
     choices,
-    correctAnswerId: correct.charAt(0),
+    correctAnswerId: correct,
     concept:         (raw.concept as string) ?? '',
     explanation:     (raw.explanation as string) ?? `The correct answer is: ${correct}`,
+    wrong_taunts:    (raw.wrong_taunts as Array<{ answer: string; taunt: string }>) ?? [],
   }
 }
 
@@ -49,6 +49,11 @@ function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): Com
     correctAnswerId: 'A',
     concept:         name,
     explanation:     `${name} is indeed central to ${cluster?.clusterName ?? 'this topic'}.`,
+    wrong_taunts: [
+      { answer: 'B', taunt: `${name} is not irrelevant — you should study harder!` },
+      { answer: 'C', taunt: `Both equally valid? Not even close, challenger.` },
+      { answer: 'D', taunt: `Neither accurate? You clearly haven't read your notes.` },
+    ],
   }
 }
 
@@ -331,9 +336,13 @@ function BattleUI() {
   const timerLow    = timerPct < 25
 
   // dialogue text varies by phase
+  const wrongTaunt = (isReveal && !state.isCorrect && state.selectedAnswer)
+    ? q?.wrong_taunts.find(t => t.answer === state.selectedAnswer)?.taunt
+    : undefined
+
   const dialogue = isExplanation
     ? (q?.explanation ?? '')
-    : (q?.dialogue ?? '')
+    : (wrongTaunt ?? q?.dialogue ?? '')
 
   return (
     <>
