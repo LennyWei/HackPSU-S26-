@@ -246,6 +246,15 @@ export default function Home() {
     return (localStorage.getItem('question_mode') as QuestionMode) ?? 'mcq'
   })
 
+  // Clear previous game state (inventory, etc.) when landing in the lobby
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('question_mode')
+      localStorage.clear()
+      if (savedMode) localStorage.setItem('question_mode', savedMode)
+    }
+  }, [])
+
   const handleModeChange = (mode: QuestionMode) => {
     setQuestionMode(mode)
     localStorage.setItem('question_mode', mode)

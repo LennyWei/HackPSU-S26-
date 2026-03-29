@@ -125,16 +125,41 @@ function buildMockInitResponse(): InitGameResponse {
   return { bossRush, bosses }
 }
 
-function buildMockQuestion(game: GameState): string {
+function buildMockQuestion(game: GameState, questionMode = 'mcq'): string {
   const concept = game.currentCluster?.concepts?.[0]
   const conceptName = concept?.name ?? 'the core concept'
-  return [
-    `Boss: Explain ${conceptName} to survive this turn.`,
-    'A) It is the process that always lowers entropy in closed systems.',
-    `B) It is directly related to ${conceptName} and is central to this topic.`,
-    'C) It has no measurable effect in science.',
-    'D) It only applies in fictional scenarios.',
-  ].join('\n')
+  
+  const useFrq = questionMode === 'frq' || (questionMode === 'both' && Math.random() < 0.5)
+
+  if (useFrq) {
+    return JSON.stringify({
+      id: 'mock_frq_0',
+      question_type: 'free_response',
+      question_text: `Explain the fundamental principles of ${conceptName} and its impact on modern systems.`,
+      dialogue: `Boss: "Words alone cannot save you. But they are a start. Speak of ${conceptName}!"`,
+      correct_answer: `${conceptName} is a multifaceted principle...`,
+      concept: conceptName,
+      explanation: `A thorough explanation of ${conceptName} involves defining its scope and utility.`,
+    })
+  }
+
+  return JSON.stringify({
+    id: 'mock_q_0',
+    question_text: `Which of these best defines ${conceptName}?`,
+    dialogue: `Boss: "Let's see if you can identify the truth about ${conceptName}."`,
+    options: [
+      { id: 'A', text: `It is the primary driver of ${conceptName} dynamics.` },
+      { id: 'B', text: `It is a secondary effect with little impact.` },
+      { id: 'C', text: `It is completely unrelated to ${conceptName}.` },
+      { id: 'D', text: `It is a theoretical concept with no practical use.` },
+    ],
+    correct_answer: 'A',
+    concept: conceptName,
+    explanation: `${conceptName} is indeed the primary driver here.`,
+    wrong_taunts: [
+      { answer: 'B', taunt: 'Secondary? You underestimate its power.' },
+    ],
+  })
 }
 
 function buildMockVerdict(answer: string, game: GameState): AnswerVerdict {
@@ -202,7 +227,7 @@ export async function uploadPDF(pdfBase64: string): Promise<InitGameResponse> {
 export async function streamQuestion(game: GameState, questionMode = 'mcq'): Promise<Response> {
   if (USE_MOCK) {
     await sleep(350)
-    return responseFromText(buildMockQuestion(game))
+    return responseFromText(buildMockQuestion(game, questionMode))
   }
 
   try {
@@ -218,7 +243,7 @@ export async function streamQuestion(game: GameState, questionMode = 'mcq'): Pro
 
     return res
   } catch {
-    return responseFromText(buildMockQuestion(game))
+    return responseFromText(buildMockQuestion(game, questionMode))
   }
 }
 

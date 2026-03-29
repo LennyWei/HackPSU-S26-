@@ -369,6 +369,7 @@ function applyItem(state: CombatState, item: InventoryItem): CombatState {
 
 type Action =
   | { type: 'LOAD_QUESTION'; payload: { question: CombatQuestion } }
+  | { type: 'SELECT_ANSWER'; payload: { answerId: string } }
   | { type: 'SUBMIT_ANSWER'; payload: { answerId: string } }
   | { type: 'SUBMIT_FREE_RESPONSE'; payload: { isCorrect: boolean } }
   | { type: 'TIMEOUT' }
@@ -406,6 +407,9 @@ function reducer(state: CombatState, action: Action): CombatState {
         playerDamageOnTimeout: scaled.playerDamageTimeout,
       }
     }
+
+    case 'SELECT_ANSWER':
+      return { ...state, selectedAnswer: action.payload.answerId }
 
     case 'SUBMIT_ANSWER': {
       const isCorrect = action.payload.answerId === state.currentQuestion?.correctAnswerId
@@ -616,6 +620,7 @@ export function useCombat({
     else dispatch({ type: 'FORCE_GAME_OVER' })
   }, [state.phase, state.questionIndex, questions])
 
+  const selectAnswer         = useCallback((id: string)             => dispatch({ type: 'SELECT_ANSWER',        payload: { answerId: id } }), [])
   const submitAnswer         = useCallback((id: string)             => dispatch({ type: 'SUBMIT_ANSWER',        payload: { answerId: id } }), [])
   const submitFreeResponse   = useCallback((isCorrect: boolean)    => dispatch({ type: 'SUBMIT_FREE_RESPONSE', payload: { isCorrect } }), [])
   const revealComplete  = useCallback(()                        => dispatch({ type: 'REVEAL_COMPLETE' }), [])
@@ -634,6 +639,7 @@ export function useCombat({
   return {
     state,
     PHASES,
+    selectAnswer,
     submitAnswer,
     submitFreeResponse,
     revealComplete,

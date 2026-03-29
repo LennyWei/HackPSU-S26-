@@ -286,16 +286,33 @@ function buildMockFrqQuestion(game: ReturnType<typeof useGame>, index: number): 
   const boss = game.currentBoss
   const concept = cluster?.concepts[index % Math.max(cluster?.concepts.length ?? 1, 1)]
   const name = concept?.name ?? 'a key concept'
+  
+  const prompts = [
+    `Tell me, in your own words: what is the essence of ${name}?`,
+    `Explain how ${name} relates to the broader system of ${cluster?.clusterName ?? 'this field'}.`,
+    `Describe a scenario where ${name} would be the most critical factor to consider.`,
+    `If you had to teach ${name} to a novice, what would be your first sentence?`
+  ]
+  const dialogues = [
+    `${boss?.name ?? 'Boss'}: "Words are your only weapon now. Explain ${name} — or suffer the consequences!"`,
+    `${boss?.name ?? 'Boss'}: "Do you truly understand ${name}, or are you just reciting from a scroll?"`,
+    `${boss?.name ?? 'Boss'}: "The stars demand an explanation for ${name}. Speak!"`,
+    `${boss?.name ?? 'Boss'}: "I have seen many fall before ${name}. Will you join them?"`
+  ]
+
+  const prompt = prompts[index % prompts.length]
+  const dialogue = dialogues[index % dialogues.length]
+
   return {
     id: `mock_frq_${index}`,
-    difficulty: 5,
+    difficulty: 6,
     question_type: 'free_response',
-    question_text: `In your own words, explain what ${name} is and why it matters in the context of ${cluster?.clusterName ?? 'this topic'}.`,
-    dialogue: `${boss?.name ?? 'Boss'}: "Words are your only weapon now. Explain ${name} — or suffer the consequences!"`,
+    question_text: prompt,
+    dialogue: dialogue,
     choices: [],
-    correctAnswerId: `${name} is a core concept within ${cluster?.clusterName ?? 'this topic'}. A strong answer describes what it is, how it works, and why it is significant.`,
+    correctAnswerId: `${name} is fundamental to ${cluster?.clusterName ?? 'the topic'}. A deep answer covers its definition and practical application.`,
     concept: name,
-    explanation: `A complete answer covers the definition of ${name}, its mechanism or role, and its importance to ${cluster?.clusterName ?? 'this topic'}.`,
+    explanation: `A standard definition of ${name} centers on its role in ${cluster?.clusterName ?? 'this system'}. Remember to mention its secondary effects.`,
     wrong_taunts: [],
   }
 }
@@ -850,7 +867,7 @@ function BattleUI() {
         @keyframes hpPulse     { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes dmgFloat    { 0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.3)} 100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(0.75)} }
         @keyframes resultPop   { 0%{transform:scale(0.6);opacity:0} 65%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
-        @keyframes scanlines   { 0%{background-position:0 0} 100%{background-position:0 4px} }
+        @keyframes scanlines   { 0%{background-position:0 0} 100%{background-position:0 100%} }
         @keyframes fadeSlideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideDown   { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spriteShakeLight {
@@ -905,7 +922,7 @@ function BattleUI() {
           <ParallaxBackground layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]} zIndex={0} showOverlay backgroundColor="#03030a" position="absolute" />
           <TwinklingStars count={90} minSize={1} maxSize={2} color="#ffffff" zIndex={1} position="absolute" />
           <ParallaxBackground layers={[{ imagePath: '/images/planets.png', parallaxIntensity: 10 }]} zIndex={2} showOverlay={false} position="absolute" />
-          <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)', animation: 'scanlines 0.1s linear infinite' }} />
+          <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 4px, 3px 100%', animation: 'scanlines 10s linear infinite' }} />
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 4, height: '34%', pointerEvents: 'none' }}>
             <img src="/images/ground.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center bottom', imageRendering: 'pixelated', display: 'block' }} />
           </div>
@@ -1065,229 +1082,272 @@ function BattleUI() {
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
 
-          {/* Timer bar — hidden during explanation */}
-          <div style={{ height: 3, flexShrink: 0, backgroundColor: '#0a0a0a' }}>
-            <div style={{
-              height: '100%',
-              width: isExplanation ? '0%' : `${timerPct}%`,
-              backgroundColor: timerLow ? '#FF0040' : '#00f0ff',
-              boxShadow: `0 0 8px ${timerLow ? '#FF004099' : '#00f0ff66'}`,
-              transition: isExplanation ? 'width 0.4s ease' : 'width 0.1s linear, background-color 0.3s',
-              animation: !isExplanation && timerLow ? 'timerPulse 0.4s ease-in-out infinite' : 'none',
-            }} />
+          {/* Timer bar — redesigned for visibility */}
+          <div style={{ padding: '4px 20px 0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <div style={{ fontSize: 'clamp(6px, 0.8vw, 8px)', color: timerLow ? '#FF0040' : '#00f0ff', letterSpacing: 2, fontFamily: 'var(--font-pixel), monospace' }}>TIME</div>
+            <div style={{ flex: 1, height: 6, backgroundColor: '#0a0a0d', border: '1px solid #ffffff11', position: 'relative', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: isExplanation ? '0%' : `${timerPct}%`,
+                backgroundColor: timerLow ? '#FF0040' : '#00f0ff',
+                boxShadow: `0 0 10px ${timerLow ? '#FF0040aa' : '#00f0ff88'}`,
+                transition: isExplanation ? 'width 0.4s ease' : 'none',
+                animation: !isExplanation && timerLow ? 'timerPulse 0.4s ease-in-out infinite' : 'none',
+              }} />
+            </div>
+            <div style={{ 
+              fontSize: 'clamp(7px, 0.9vw, 9px)', 
+              color: timerLow ? '#FF0040' : '#00f0ff', 
+              width: 30, textAlign: 'right',
+              fontFamily: 'var(--font-pixel), monospace' 
+            }}>
+              {Math.ceil(state.timeRemaining / 1000)}s
+            </div>
           </div>
 
           <div style={{ height: 2, flexShrink: 0, background: 'linear-gradient(90deg, transparent, #FF004044 25%, #9933ff55 50%, #00f0ff44 75%, transparent)' }} />
 
           {/* Dialogue */}
-          <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 80 }}>
-            <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#FF004066', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
-              {game.currentBoss.name}:
-            </div>
+          <div style={{ padding: '16px 20px', flexShrink: 0, minHeight: 60, display: 'flex', alignItems: 'center', position: 'relative' }}>
             <p style={{
               margin: 0,
-              fontSize: 'clamp(12px, 1.5vw, 16px)',
-              color: (isReveal && !state.isCorrect) ? '#FF7755' : '#dddddd',
-              lineHeight: 1.9,
-              textShadow: (isReveal && !state.isCorrect) ? '0 0 12px #FF440022' : 'none',
-              letterSpacing: 0.5,
+              fontSize: 'clamp(14px, 1.6vw, 18px)',
+              color: (isReveal && !state.isCorrect) ? '#FF4400' : '#dddddd',
+              lineHeight: 1.6,
+              fontFamily: 'var(--font-mono), monospace'
             }}>
-              {isLoading ? <span style={{ color: '#2a2a2a', animation: 'blink 0.8s infinite', display: 'inline-block' }}>▋</span> : dialogue}
-              {isActive && <span style={{ animation: 'blink 0.6s infinite', color: '#FF3333', marginLeft: 2 }}>▋</span>}
+              {isLoading ? <span style={{ color: '#2a2a2a', animation: 'blink 0.8s infinite' }}>▋</span> : dialogue}
+              {isActive && <span style={{ animation: 'blink 0.6s infinite', color: '#FF3333', marginLeft: 6 }}>▋</span>}
             </p>
-            {(isReveal || isExplanation) && state.isCorrect === true && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>}
-            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>}
+            {(isReveal || isExplanation) && state.isCorrect === true && <div style={{ position: 'absolute', top: 16, right: 20, fontSize: 'clamp(10px, 1.2vw, 14px)', color: '#39FF14', fontFamily: 'var(--font-pixel), monospace', animation: 'resultPop 0.3s ease', letterSpacing: 1 }}>CORRECT</div>}
+            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 16, right: 20, fontSize: 'clamp(10px, 1.2vw, 14px)', color: '#FF0040', fontFamily: 'var(--font-pixel), monospace', animation: 'resultPop 0.3s ease', letterSpacing: 1 }}>WRONG</div>}
           </div>
 
-          {/* Content */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Splitted Content area */}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: 20, padding: '0 20px 20px 20px', overflow: 'hidden' }}>
+            
+            {(isActive || isReveal || isExplanation) && q ? (
+              <>
+                {/* LEFT SIDE: Question scroll */}
+                <div className="pixel-corners" style={{
+                  flex: 1, minHeight: 0,
+                  border: '2px solid #FFD700',
+                  backgroundColor: '#0a0a05',
+                  padding: '20px',
+                  display: 'flex', flexDirection: 'column',
+                  overflowY: 'auto'
+                }}>
+                  <p style={{ margin: 0, fontSize: 'clamp(14px, 1.8vw, 20px)', color: '#FFD700', lineHeight: 1.8, fontFamily: 'var(--font-mono), monospace' }}>
+                    {q.question_text}
+                  </p>
+                </div>
 
-            {isLoading && (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
+                {/* RIGHT SIDE: Answers area */}
+                <div style={{
+                  flex: 1, minHeight: 0,
+                  display: 'flex', flexDirection: 'column', gap: 16
+                }}>
+                  {isFrq ? (
+                    /* FRQ Variant */
+                    <>
+                      <div className="pixel-corners" style={{
+                        flex: 1, minHeight: 0,
+                        border: '2px solid #8A2BE2',
+                        backgroundColor: '#100515',
+                        padding: '16px',
+                        display: 'flex', flexDirection: 'column',
+                        position: 'relative'
+                      }}>
+                        <textarea
+                          value={frqText}
+                          onChange={e => setFrqText(e.target.value)}
+                          disabled={!isActive || judgingFrq}
+                          placeholder={judgingFrq ? "JUDGING..." : "TYPE YOUR INCANTATION..."}
+                          style={{
+                            flex: 1,
+                            background: 'transparent', border: 'none', outline: 'none', resize: 'none',
+                            color: '#eebbff',
+                            fontFamily: 'var(--font-mono), monospace',
+                            fontSize: 'clamp(14px, 1.6vw, 18px)', lineHeight: 1.6
+                          }}
+                        />
+                        <div style={{ width: '100%', height: 8, backgroundColor: '#220033', marginTop: 12, border: '1px solid #8A2BE2' }}>
+                           <div style={{ height: '100%', width: `${Math.min(100, (frqText.trim().length / 50) * 100)}%`, backgroundColor: '#8A2BE2', transition: 'width 0.2s' }} />
+                        </div>
+                      </div>
+                      
+                      {/* FRQ Action Row */}
+                      <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+                        <button 
+                          className="pixel-corners"
+                          onClick={() => setFrqText('')}
+                          disabled={!isActive || judgingFrq || !frqText}
+                          style={{
+                            flex: 1, padding: '14px',
+                            backgroundColor: '#1a0005', border: '2px solid #FF0040', color: '#FF0040',
+                            fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                            cursor: (!isActive || judgingFrq || !frqText) ? 'default' : 'pointer'
+                          }}
+                        >ERASE</button>
+                        <button
+                          className="pixel-corners retro-hover-purple"
+                          onClick={handleFrqSubmit}
+                          disabled={!isActive || judgingFrq || !frqText.trim()}
+                          style={{
+                            flex: 2, padding: '14px',
+                            backgroundColor: '#100515', border: '2px solid #8A2BE2', color: '#8A2BE2',
+                            fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                            cursor: (!isActive || judgingFrq || !frqText.trim()) ? 'default' : 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >SUBMIT SCROLL ►</button>
+                      </div>
+                    </>
+                  ) : (
+                    /* MCQ Variant */
+                    <>
+                      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+                        {choices.map((choice, i) => {
+                          const isSel = state.selectedAnswer === choice.id
+                          const isCorr = choice.id === q.correctAnswerId
+                          const isDis = !isActive
+                          const hasExp = !!(isExplanation && q.explanations && q.explanations[choice.id])
+                          const isOpen = openExps.includes(choice.id)
+
+                          let bg = '#050510', border = '#00f0ff33', color = '#00f0ff', badgeBg = '#00f0ff11'
+                          if (isReveal || isExplanation) {
+                            if (isCorr) { bg = '#002010'; border = '#39FF14'; color = '#39FF14'; badgeBg = '#39FF1433' }
+                            else if (isSel) { bg = '#200005'; border = '#FF0040'; color = '#FF0040'; badgeBg = '#FF004033' }
+                            else { bg = '#080808'; border = '#333333'; color = '#666666'; badgeBg = '#222222' }
+                          } else if (isSel) {
+                            bg = '#201500'; border = '#FFD700'; color = '#FFD700'; badgeBg = '#FFD70033'
+                          }
+
+                          return (
+                            <div key={choice.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, height: '100%', minHeight: 0 }}>
+                              <button
+                                className={`pixel-corners ${isActive && !isSel ? 'retro-hover-cyan' : ''}`}
+                                onClick={() => combat.selectAnswer(choice.id)}
+                                disabled={isDis}
+                                style={{
+                                  flex: 1,
+                                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                                  backgroundColor: bg, border: `2px solid ${border}`, color,
+                                  padding: '12px', cursor: isDis ? 'default' : 'pointer',
+                                  fontFamily: 'var(--font-mono), monospace',
+                                  fontSize: 'clamp(12px, 1.4vw, 16px)', textAlign: 'left',
+                                  lineHeight: 1.5, transition: 'all 0.15s',
+                                  overflowY: 'auto'
+                                }}
+                              >
+                                <div style={{ 
+                                  padding: '4px 8px', backgroundColor: badgeBg, 
+                                  fontFamily: 'var(--font-pixel), monospace', fontSize: '10px', 
+                                  marginBottom: 8, letterSpacing: 1 
+                                }}>
+                                  [{['A','B','C','D'][i]}]
+                                </div>
+                                {choice.text}
+                              </button>
+                              {/* The WHY dropdown */}
+                              {hasExp && (
+                                <div className="pixel-corners" style={{ border: `2px solid ${border}`, backgroundColor: bg, marginTop: -4, flexShrink: 0 }}>
+                                  <button
+                                    onClick={() => setOpenExps(prev =>
+                                      prev.includes(choice.id)
+                                        ? prev.filter(id => id !== choice.id)
+                                        : [...prev, choice.id]
+                                    )}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                      padding: '8px 12px', background: 'none', border: 'none',
+                                      cursor: 'pointer', fontFamily: 'var(--font-pixel), monospace', color
+                                    }}
+                                  >
+                                    <span style={{ fontSize: '8px', letterSpacing: 1 }}>WHY?</span>
+                                    <span style={{ fontSize: '8px' }}>{isOpen ? '▲' : '▼'}</span>
+                                  </button>
+                                  {isOpen && (
+                                    <div style={{ padding: '0 12px 12px 12px', fontSize: 'clamp(10px, 1.1vw, 13px)', color: '#99bbbb', lineHeight: 1.6, fontFamily: 'var(--font-mono), monospace' }}>
+                                      {q.explanations![choice.id]}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* MCQ Action Row */}
+                      <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+                        <button 
+                          className="pixel-corners"
+                          onClick={() => combat.selectAnswer('')}
+                          disabled={!isActive || !state.selectedAnswer}
+                          style={{
+                            flex: 1, padding: '14px',
+                            backgroundColor: '#1a0005', border: '2px solid #FF0040', color: '#FF0040',
+                            fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                            cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer'
+                          }}
+                        >CLEAR</button>
+                        {(isExplanation) ? (
+                          <button
+                            className="pixel-corners retro-hover-cyan"
+                            onClick={() => combat.explanationOK()}
+                            style={{
+                              flex: 2, padding: '14px',
+                              backgroundColor: '#001a1a', border: '2px solid #00f0ff', color: '#00f0ff',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              cursor: 'pointer'
+                            }}
+                          >NEXT ►</button>
+                        ) : (
+                          <button
+                            className="pixel-corners retro-hover-gold"
+                            onClick={() => state.selectedAnswer && combat.submitAnswer(state.selectedAnswer)}
+                            disabled={!isActive || !state.selectedAnswer}
+                            style={{
+                              flex: 2, padding: '14px',
+                              backgroundColor: '#1a1800', border: '2px solid #FFD700', color: '#FFD700',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >CAST ANSWER ►</button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite', fontFamily: 'var(--font-pixel), monospace' }}>
                 ENEMY IS CHARGING...
               </div>
             )}
-
-            {/* Question + choices — visible during ACTIVE, REVEAL, and EXPLANATION */}
-            {(isActive || isReveal || isExplanation) && q && (
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: isExplanation ? 'visible' : 'hidden' }}>
-
-                {/* Question row */}
-                <div style={{ flex: 1, minHeight: 0, padding: '10px 18px 8px', display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', overflow: 'hidden' }}>
-
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 'clamp(13px, 1.6vw, 18px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
-                      {q.question_text}
-                    </p>
-                  </div>
-
-                  <div style={{ width: 1, backgroundColor: '#ffffff0a', flexShrink: 0 }} />
-
-                  {isFrq ? (
-                    /* ── Free-response input ── */
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
-                      {(isReveal || isExplanation) ? (
-                        /* Show the player's submitted answer with a result badge */
-                        <div style={{ border: `1px solid ${state.isCorrect ? '#39FF1444' : '#FF004044'}`, backgroundColor: state.isCorrect ? '#001a08' : '#1a0005', padding: '10px 12px' }}>
-                          <div style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: state.isCorrect ? '#39FF1488' : '#FF004088', letterSpacing: 2, marginBottom: 4 }}>
-                            YOUR ANSWER
-                          </div>
-                          <p style={{ margin: 0, fontSize: 'clamp(6px, 1vw, 8px)', color: '#aaaaaa', lineHeight: 1.7 }}>{frqText}</p>
-                        </div>
-                      ) : (
-                        <>
-                          <textarea
-                            value={frqText}
-                            onChange={e => setFrqText(e.target.value)}
-                            disabled={!isActive || judgingFrq}
-                            placeholder="Type your answer here..."
-                            style={{
-                              fontFamily: 'var(--font-pixel), monospace',
-                              fontSize: 'clamp(6px, 1vw, 8px)',
-                              color: '#cccccc', backgroundColor: '#050510',
-                              border: '1px solid #00f0ff33',
-                              padding: '10px 12px', resize: 'none', height: 80,
-                              lineHeight: 1.7, outline: 'none',
-                              opacity: judgingFrq ? 0.5 : 1,
-                            }}
-                            onFocus={e => { e.currentTarget.style.borderColor = '#00f0ff77' }}
-                            onBlur={e => { e.currentTarget.style.borderColor = '#00f0ff33' }}
-                          />
-                          <button
-                            onClick={handleFrqSubmit}
-                            disabled={!isActive || judgingFrq || !frqText.trim()}
-                            style={{
-                              fontFamily: 'var(--font-pixel), monospace',
-                              fontSize: 'clamp(6px, 1vw, 8px)',
-                              letterSpacing: 2, padding: '9px 0',
-                              color: judgingFrq ? '#555' : '#00f0ff',
-                              backgroundColor: judgingFrq ? '#05050d' : '#001018',
-                              border: `1px solid ${judgingFrq ? '#222' : '#00f0ff44'}`,
-                              cursor: (!isActive || judgingFrq || !frqText.trim()) ? 'default' : 'pointer',
-                              transition: 'all 0.15s',
-                              animation: isActive && !judgingFrq && frqText.trim() ? 'choicePulse 2s ease-in-out infinite' : 'none',
-                            }}
-                            onMouseEnter={e => { if (isActive && !judgingFrq && frqText.trim()) { e.currentTarget.style.backgroundColor = '#002030'; e.currentTarget.style.borderColor = '#00f0ff' } }}
-                            onMouseLeave={e => { if (isActive && !judgingFrq && frqText.trim()) { e.currentTarget.style.backgroundColor = '#001018'; e.currentTarget.style.borderColor = '#00f0ff44' } }}
-                          >
-                            {judgingFrq ? '▋ JUDGING...' : '► SUBMIT ANSWER'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    /* ── Multiple choice grid ── */
-                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start', marginTop: 16 }}>
-                      {choices.map(choice => {
-                        const isSel = state.selectedAnswer === choice.id
-                        const isCorr = choice.id === q.correctAnswerId
-                        const isDis = !isActive
-                        const hasExp = !!(isExplanation && q.explanations && q.explanations[choice.id])
-                        const isOpen = openExps.includes(choice.id)
-
-                        let bg = '#050510', border = '#00f0ff33', color = '#00f0ff'
-                        if (isReveal || isExplanation) {
-                          if (isCorr) { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
-                          else if (isSel) { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
-                          else { bg = '#080808'; border = '#111'; color = '#333' }
-                        } else if (isDis) { bg = '#080808'; border = '#111'; color = '#333' }
-
-                        return (
-                          <div key={choice.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <button
-                              onClick={() => handleAnswer(choice.id)}
-                              disabled={isDis}
-                              style={{
-                                width: '100%',
-                                fontFamily: 'var(--font-pixel), monospace',
-                                fontSize: 'clamp(8px, 1.1vw, 10px)',
-                                letterSpacing: 1,
-                                color, backgroundColor: bg,
-                                border: `1px solid ${border}`,
-                                padding: '9px 12px',
-                                textAlign: 'left',
-                                cursor: isDis ? 'default' : 'pointer',
-                                transition: 'all 0.15s',
-                                lineHeight: 1.7,
-                                animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
-                              }}
-                              onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
-                              onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
-                            >
-                              {choice.id}) {choice.text}
-                            </button>
-
-                            {/* Per-choice explanation dropdown directly below the button */}
-                            {hasExp && (
-                              <div style={{ border: `1px solid ${border}`, backgroundColor: bg, marginTop: -4 }}>
-                                <button
-                                  onClick={() => setOpenExps(prev =>
-                                    prev.includes(choice.id)
-                                      ? prev.filter(id => id !== choice.id)
-                                      : [...prev, choice.id]
-                                  )}
-                                  style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '6px 12px', background: 'none', border: 'none',
-                                    cursor: 'pointer', fontFamily: 'var(--font-pixel), monospace',
-                                  }}
-                                >
-                                  <span style={{ fontSize: 'clamp(6px, 0.8vw, 8px)', color, letterSpacing: 1 }}>WHY?</span>
-                                  <span style={{ fontSize: 8, color }}>{isOpen ? '▲' : '▼'}</span>
-                                </button>
-                                {isOpen && (
-                                  <div style={{ padding: '0 12px 10px 12px', fontSize: 'clamp(7px, 0.9vw, 10px)', color: '#99bbbb', lineHeight: 1.6 }}>
-                                    {q.explanations![choice.id]}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* Explanation strip — slides in after answering */}
-                {isExplanation && (
-                  <div style={{
-                    flexShrink: 0,
-                    borderTop: '1px solid #00f0ff18',
-                    backgroundColor: '#020209',
-                    padding: '10px 18px 12px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-                    animation: 'slideDown 0.35s ease',
-                    overflow: 'hidden',
-                  }}>
-                    <button
-                      onClick={() => combat.explanationOK()}
-                      style={{
-                        flexShrink: 0,
-                        fontFamily: 'var(--font-pixel), monospace',
-                        fontSize: 'clamp(10px, 1.1vw, 13px)',
-                        letterSpacing: 2,
-                        color: '#00f0ff',
-                        backgroundColor: '#001018',
-                        border: '1px solid #00f0ff44',
-                        padding: '10px 20px',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        whiteSpace: 'nowrap',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#002030'; e.currentTarget.style.borderColor = '#00f0ff' }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#001018'; e.currentTarget.style.borderColor = '#00f0ff44' }}
-                    >
-                      NEXT →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
+    </div>
+
+      <style>{`
+        .pixel-corners {
+          clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
+        }
+        .retro-hover-cyan:hover:not(:disabled) {
+          background-color: #00f0ff1a !important;
+          border-color: #00f0ff !important;
+        }
+        .retro-hover-gold:hover:not(:disabled) {
+          background-color: #302a00 !important;
+          border-color: #FFD700 !important;
+        }
+        .retro-hover-purple:hover:not(:disabled) {
+          background-color: #2a1535 !important;
+          border-color: #8A2BE2 !important;
+        }
+      `}</style>
     </>
   )
 }
