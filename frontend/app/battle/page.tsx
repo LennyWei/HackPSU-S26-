@@ -6,6 +6,8 @@ import { useGame, PLAYER_MAX_HP_VALUE } from '@/context/GameContext'
 import { streamQuestion, streamAnswer, readStream, parseVerdict } from '@/lib/api'
 import ParallaxBackground from '@/components/ui/parallax-background'
 import TwinklingStars from '@/components/ui/twinkling-stars'
+import Particles, { ParticlesHandle } from '@/components/ui/particles'
+import { useShake, ShakeStyles } from '@/hooks/useShake'
 
 /* ─── Parse MCQ choices from question text ─── */
 function extractChoices(text: string): string[] | null {
@@ -174,17 +176,19 @@ export default function BattlePage() {
   const [question, setQuestion]           = useState('')
   const [choices, setChoices]             = useState<string[] | null>(null)
   const [answer, setAnswer]               = useState('')
-  const [shake, setShake]                 = useState(false)
   const [bossFlashing, setBossFlashing]   = useState(false)
   const [playerDamaged, setPlayerDamaged] = useState(false)
   const [dmgNums, setDmgNums]             = useState<DmgNum[]>([])
   const [lastCorrect, setLastCorrect]     = useState<boolean | null>(null)
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null)
 
-  const dmgIdRef    = useRef(0)
-  const didFetchRef = useRef(false)
-  const bossRef     = useRef<HTMLDivElement>(null)
-  const playerRef   = useRef<HTMLDivElement>(null)
+  const { shakeClass, triggerShake } = useShake()
+
+  const dmgIdRef      = useRef(0)
+  const didFetchRef   = useRef(false)
+  const bossRef       = useRef<HTMLDivElement>(null)
+  const playerRef     = useRef<HTMLDivElement>(null)
+  const particlesRef  = useRef<ParticlesHandle>(null)
 
   const addDmg = (value: number, color: string, side: 'boss' | 'player') => {
     const id = dmgIdRef.current++
@@ -200,12 +204,37 @@ export default function BattlePage() {
     setLastCorrect(null)
     setSelectedChoice(null)
     try {
-      const res = await streamQuestion(game)
-      let full  = ''
-      await readStream(res, (chunk) => { full += chunk; setDialogue(full) })
-      setQuestion(full)
-      const parsed = extractChoices(full)
-      setChoices(parsed)
+      let data: Record<string, unknown>
+
+      if (process.env.NEXT_PUBLIC_MOCK === 'true') {
+        await new Promise((r) => setTimeout(r, 800))
+        const boss = game.currentBoss
+        const cluster = game.currentCluster
+        data = {
+          dialogue: `${boss?.name ?? 'The Boss'} snarls: "Let's see if you truly understand ${cluster?.clusterName ?? 'this topic'}!"`,
+          question_text: `Which of the following best describes a key concept in ${cluster?.clusterName ?? 'this topic'}?`,
+          options: [
+            `A) ${cluster?.concepts[0]?.name ?? 'Concept A'}`,
+            `B) ${cluster?.concepts[1]?.name ?? 'Concept B'}`,
+            'C) Neither of the above',
+            'D) All of the above',
+          ],
+          correct_answer: `A) ${cluster?.concepts[0]?.name ?? 'Concept A'}`,
+        }
+      } else {
+        const res = await streamQuestion(game)
+        let full  = ''
+        await readStream(res, (chunk) => { full += chunk })
+        data = JSON.parse(full)
+      }
+
+      const dlg  = data.dialogue as string ?? ''
+      const opts: string[] = Array.isArray(data.options) ? data.options as string[] : []
+      const qText = [data.question_text as string ?? '', ...opts].filter(Boolean).join('\n')
+
+      setDialogue(dlg)
+      setQuestion(qText)
+      setChoices(opts.length ? opts : extractChoices(qText))
       setPhase('answering')
     } catch {
       setDialogue('ERROR: Could not reach the enemy...')
@@ -226,15 +255,25 @@ export default function BattlePage() {
     setAnswer('')
 
     try {
-      const res = await streamAnswer(submittedAnswer, question, game)
-      let full  = ''
-      await readStream(res, (chunk) => {
-        full += chunk
-        const { dialogue: d } = parseVerdict(full)
-        setDialogue(d)
-      })
+      const verdict = await (async () => {
+        if (process.env.NEXT_PUBLIC_MOCK === 'true') {
+          await new Promise((r) => setTimeout(r, 700))
+          const isCorrect = submittedAnswer.startsWith('A)')
+          setDialogue(isCorrect
+            ? `${game.currentBoss?.name ?? 'Boss'}: "Impossible! You actually knew that?!"`
+            : `${game.currentBoss?.name ?? 'Boss'}: "Ha! Wrong! You fall before my intellect!"`)
+          return { correct: isCorrect, explanation: 'Mock explanation for this answer.', conceptName: game.currentCluster?.concepts[0]?.name ?? 'concept', damage: 30, playerDamage: 20, scoreGained: isCorrect ? 100 : 0 }
+        }
+        const res = await streamAnswer(submittedAnswer, question, game)
+        let full  = ''
+        await readStream(res, (chunk) => {
+          full += chunk
+          const { dialogue: d } = parseVerdict(full)
+          setDialogue(d)
+        })
+        return parseVerdict(full).verdict
+      })()
 
-      const { verdict } = parseVerdict(full)
       if (!verdict) { setPhase('answering'); return }
 
       setLastCorrect(verdict.correct)
@@ -254,13 +293,29 @@ export default function BattlePage() {
         game.damageBoss(verdict.damage)
         setBossFlashing(true)
         addDmg(verdict.damage, '#39FF14', 'boss')
+        const bossRect = bossRef.current?.getBoundingClientRect()
+        if (bossRect) {
+          particlesRef.current?.burst(
+            bossRect.left + bossRect.width / 2,
+            bossRect.top  + bossRect.height / 2,
+            { color: ['#39FF14', '#00f0ff', '#ffffff'], count: 36, speed: 7, gravity: 0.25, size: 5 }
+          )
+        }
         setTimeout(() => setBossFlashing(false), 300)
       } else {
         game.damagePlayer(verdict.playerDamage)
         addDmg(verdict.playerDamage, '#FF0040', 'player')
-        setShake(true)
         setPlayerDamaged(true)
-        setTimeout(() => { setShake(false); setPlayerDamaged(false) }, 500)
+        triggerShake({ intensity: 'heavy' })
+        const playerRect = playerRef.current?.getBoundingClientRect()
+        if (playerRect) {
+          particlesRef.current?.burst(
+            playerRect.left + playerRect.width / 2,
+            playerRect.top  + playerRect.height / 2,
+            { color: ['#FF0040', '#ff6644', '#ffaa00'], count: 28, speed: 5, angle: -Math.PI / 2, spread: Math.PI, gravity: 0.3, size: 4 }
+          )
+        }
+        setTimeout(() => setPlayerDamaged(false), 500)
       }
 
       setPhase('result')
@@ -306,19 +361,14 @@ export default function BattlePage() {
 
   return (
     <>
+      <ShakeStyles />
+      <Particles ref={particlesRef} />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         @keyframes bossFloat {
           0%,100% { transform: translateY(0px); }
           50%      { transform: translateY(-10px); }
-        }
-        @keyframes shake {
-          0%,100% { transform: translateX(0); }
-          20%     { transform: translateX(-8px); }
-          40%     { transform: translateX(8px); }
-          60%     { transform: translateX(-5px); }
-          80%     { transform: translateX(5px); }
         }
         @keyframes hpPulse {
           0%,100% { opacity: 1; }
@@ -363,9 +413,10 @@ export default function BattlePage() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        animation: shake ? 'shake 0.4s ease' : 'none',
         position: 'relative',
-      }}>
+      }}
+      className={shakeClass}
+    >
 
         <ParallaxBackground
           layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]}
@@ -693,29 +744,37 @@ export default function BattlePage() {
             )}
 
             {(phase === 'answering' || phase === 'result') && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, animation: 'fadeSlideUp 0.25s ease' }}>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', height: '100%' }}>
 
-                {/* Question text */}
-                <p style={{
-                  margin: 0,
-                  fontSize: 'clamp(6px, 1.1vw, 8px)',
-                  color: '#FFD700',
-                  lineHeight: 1.9,
-                  textShadow: '0 0 8px #FFD70022',
-                }}>
-                  {/* Strip out the A/B/C/D lines if MCQ so they don't duplicate */}
-                  {choices
-                    ? question.split('\n').find(l => l.trim().length > 0 && !/^\s*[（(]?[A-D][）).]/.test(l)) ?? question
-                    : question
-                  }
-                </p>
+                {/* ── Left: Question text ── */}
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                  <p style={{
+                    margin: 0,
+                    fontSize: 'clamp(6px, 1.1vw, 8px)',
+                    color: '#FFD700',
+                    lineHeight: 1.9,
+                    textShadow: '0 0 8px #FFD70022',
+                  }}>
+                    {choices
+                      ? question.split('\n').find(l => l.trim().length > 0 && !/^\s*[（(]?[A-D][）).]/.test(l)) ?? question
+                      : question
+                    }
+                  </p>
+                </div>
 
-                {/* ── MCQ choices ── */}
+                {/* ── Divider ── */}
+                {choices && (
+                  <div style={{ width: 1, backgroundColor: '#ffffff0a', flexShrink: 0 }} />
+                )}
+
+                {/* ── Right: MCQ choices ── */}
                 {choices && (
                   <div style={{
+                    flex: 1,
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
                     gap: 8,
+                    alignContent: 'center',
                   }}>
                     {choices.map((choice, idx) => {
                       const isSelected = selectedChoice === idx

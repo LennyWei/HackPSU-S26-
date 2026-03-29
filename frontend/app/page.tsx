@@ -54,20 +54,16 @@ function UploadZone({ onFiles }: { onFiles: (files: File[]) => void }) {
     if (!incoming) return
     const pdfs = Array.from(incoming).filter(f => f.type === 'application/pdf')
     if (!pdfs.length) return
-    setFiles(prev => {
-      const names = new Set(prev.map(f => f.name))
-      const next  = [...prev, ...pdfs.filter(f => !names.has(f.name))]
-      onFiles(next)
-      return next
-    })
+    const names = new Set(files.map(f => f.name))
+    const next  = [...files, ...pdfs.filter(f => !names.has(f.name))]
+    setFiles(next)
+    onFiles(next)
   }
 
   const remove = (name: string) => {
-    setFiles(prev => {
-      const next = prev.filter(f => f.name !== name)
-      onFiles(next)
-      return next
-    })
+    const next = files.filter(f => f.name !== name)
+    setFiles(next)
+    onFiles(next)
   }
 
   const borderColor = dragging ? C.accent : files.length > 0 ? C.green : C.border
