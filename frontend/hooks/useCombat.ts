@@ -63,12 +63,14 @@ export interface ActiveEffect {
 }
 
 export const PHASES = {
-  LOADING:     'loading',
-  ACTIVE:      'active',
-  ITEM_SELECT: 'item_select',
-  REVEAL:      'reveal',
-  EXPLANATION: 'explanation',
-  GAME_OVER:   'game_over',
+  LOADING:       'loading',
+  ACTION_SELECT: 'action_select',   // choose attack or use item — timer not yet running
+  ACTIVE:        'active',          // timer running, question visible
+  ITEM_SELECT:   'item_select',     // inventory overlay (entered from ACTION_SELECT or ACTIVE)
+  REVEAL:        'reveal',
+  EXPLANATION:   'explanation',
+  CASE_OPENING:  'case_opening',    // CS:GO-style reel animation after boss defeat
+  GAME_OVER:     'game_over',
 } as const
 
 export type Phase = typeof PHASES[keyof typeof PHASES]
@@ -96,6 +98,8 @@ export interface CombatState {
   eliminatedChoices: string[]
   timerDisabled: boolean                // set by time_remover — skips TICK for this question
   _timeoutPending: boolean
+  pendingReward:      InventoryItem | null   // item being shown in case-opening reel
+  itemSelectReturnTo: Phase | null           // where CLOSE_ITEM_SELECT / USE_ITEM returns to
 }
 
 // ─── Item pool ────────────────────────────────────────────────────────────────
@@ -107,6 +111,8 @@ export interface CombatState {
 //   rare       25%  →  4 items ×  6.25% each
 //   epic       12.5%→  3 items ×  4.17% each
 //   legendary   2.5%→  2 items ×  1.25% each
+
+export const MAX_INVENTORY = 3
 
 type ItemTemplate = Omit<InventoryItem, 'id'>
 
@@ -137,7 +143,7 @@ const ITEM_POOL: ItemTemplate[] = [
 
 // Rarity thresholds (cumulative, checked from rarest to most common)
 // legendary: 0–2.5, epic: 2.5–15, rare: 15–40, basic: 40–100
-function selectRandomItem(): InventoryItem {
+export function selectRandomItem(): InventoryItem {
   const roll = Math.random() * 100
 
   let rarity: ItemRarity
@@ -160,6 +166,26 @@ function selectRandomEpicItem(): InventoryItem {
 }
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
+
+// Persistent cross-battle inventory
+const INVENTORY_KEY = 'player_inventory'
+
+export function saveItemToPlayerInventory(item: InventoryItem): boolean {
+  try {
+    const existing = loadPlayerInventory()
+    if (existing.length >= MAX_INVENTORY) return false
+    localStorage.setItem(INVENTORY_KEY, JSON.stringify([...existing, item]))
+    return true
+  } catch { return false }
+}
+
+export function loadPlayerInventory(): InventoryItem[] {
+  try {
+    const raw = localStorage.getItem(INVENTORY_KEY)
+    return raw ? (JSON.parse(raw) as InventoryItem[]) : []
+  } catch { return [] }
+}
+
 // Key used by the reward page to read what was earned
 const REWARD_KEY = 'combat_pending_reward'
 
@@ -193,7 +219,7 @@ function lerp(a: number, b: number, t: number) {
 export function scaleByDifficulty(difficulty: number) {
   const t = difficulty / 10
   return {
-    timeMs:              60000000/*Math.round(lerp(60000, 30000, t))*/,
+    timeMs:              Math.round(lerp(60000, 30000, t)),
     bossDamage:          Math.round(lerp(100, 250, t)),
     playerDamageWrong:   Math.round(lerp(200, 100, t)),
     playerDamageTimeout: Math.round(lerp(150, 80, t)),
@@ -320,10 +346,11 @@ function applyItem(state: CombatState, item: InventoryItem): CombatState {
     // ── legendary ───────────────────────────────────────────────────────────
 
     case 'double_trouble': {
-      // rolls two independent epic items and adds both to inventory immediately
       const epicA = selectRandomEpicItem()
       const epicB = selectRandomEpicItem()
-      return { ...withoutItem, inventory: [...withoutItem.inventory, epicA, epicB] }
+      const slots  = MAX_INVENTORY - withoutItem.inventory.length
+      const toAdd  = [epicA, epicB].slice(0, Math.max(0, slots))
+      return { ...withoutItem, inventory: [...withoutItem.inventory, ...toAdd] }
     }
 
     case 'full_restore':
@@ -347,6 +374,8 @@ type Action =
   | { type: 'USE_ITEM'; payload: { item: InventoryItem } }
   | { type: 'OPEN_ITEM_SELECT' }
   | { type: 'CLOSE_ITEM_SELECT' }
+  | { type: 'SELECT_ATTACK' }
+  | { type: 'CASE_COMPLETE' }
   | { type: 'FORCE_GAME_OVER' }
   | { type: 'DEBUG_SET'; payload: Partial<CombatState> }
 
@@ -426,11 +455,10 @@ function reducer(state: CombatState, action: Action): CombatState {
       if (checkGameOver(state)) {
         const playerWon = state.bossHP <= 0
         if (playerWon) {
-          // roll item and write to localStorage — reward page reads it from there
+          // roll item and enter case-opening reel — CASE_COMPLETE saves it and moves to GAME_OVER
           const reward = selectRandomItem()
-          saveRewardToStorage(reward)
+          return { ...state, phase: PHASES.CASE_OPENING, pendingReward: reward }
         }
-        // always go straight to GAME_OVER — no intermediate reward phase
         return { ...state, phase: PHASES.GAME_OVER }
       }
       return { ...state, phase: PHASES.LOADING, questionIndex: state.questionIndex + 1 }
@@ -440,10 +468,18 @@ function reducer(state: CombatState, action: Action): CombatState {
       return state.phase !== PHASES.ACTIVE ? state : applyItem(state, action.payload.item)
 
     case 'OPEN_ITEM_SELECT':
-      return state.phase === PHASES.ACTIVE ? { ...state, phase: PHASES.ITEM_SELECT } : state
+      if (state.phase !== PHASES.ACTIVE && state.phase !== PHASES.ACTION_SELECT) return state
+      return { ...state, phase: PHASES.ITEM_SELECT, itemSelectReturnTo: state.phase }
 
     case 'CLOSE_ITEM_SELECT':
-      return state.phase === PHASES.ITEM_SELECT ? { ...state, phase: PHASES.ACTIVE } : state
+      if (state.phase !== PHASES.ITEM_SELECT) return state
+      return { ...state, phase: state.itemSelectReturnTo ?? PHASES.ACTIVE, itemSelectReturnTo: null }
+
+    case 'SELECT_ATTACK':
+      return state.phase === PHASES.ACTION_SELECT ? { ...state, phase: PHASES.ACTIVE } : state
+
+    case 'CASE_COMPLETE':
+      return { ...state, phase: PHASES.GAME_OVER, pendingReward: null }
 
     case 'FORCE_GAME_OVER':
       return { ...state, phase: PHASES.GAME_OVER }
@@ -494,6 +530,8 @@ export function useCombat({
     eliminatedChoices:     [],
     timerDisabled:         false,
     _timeoutPending:       false,
+    pendingReward:         null,
+    itemSelectReturnTo:    null,
   } satisfies CombatState)
 
   const timerRef    = useRef<number | null>(null)
@@ -523,6 +561,15 @@ export function useCombat({
   }, [state._timeoutPending])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(INVENTORY_KEY, JSON.stringify(state.inventory))
+    } catch {
+      // ignore private mode / storage failure
+    }
+  }, [state.inventory])
+
+  useEffect(() => {
     if (state.phase !== PHASES.LOADING) return
     const next = questions[state.questionIndex]
     if (next) dispatch({ type: 'LOAD_QUESTION', payload: { question: next } })
@@ -535,6 +582,8 @@ export function useCombat({
   const useItem         = useCallback((item: InventoryItem)     => dispatch({ type: 'USE_ITEM',        payload: { item } }), [])
   const openItemSelect  = useCallback(()                        => dispatch({ type: 'OPEN_ITEM_SELECT' }), [])
   const closeItemSelect = useCallback(()                        => dispatch({ type: 'CLOSE_ITEM_SELECT' }), [])
+  const selectAttack    = useCallback(()                        => dispatch({ type: 'SELECT_ATTACK' }), [])
+  const caseComplete    = useCallback(()                        => dispatch({ type: 'CASE_COMPLETE' }), [])
   const debugSet        = useCallback((p: Partial<CombatState>) => {
     if (process.env.NODE_ENV === 'development') dispatch({ type: 'DEBUG_SET', payload: p })
   }, [])
@@ -548,6 +597,8 @@ export function useCombat({
     useItem,
     openItemSelect,
     closeItemSelect,
+    selectAttack,
+    caseComplete,
     debugSet,
   }
 }

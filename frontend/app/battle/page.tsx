@@ -1,16 +1,148 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import {
+  useState, useEffect, useRef, useMemo, useCallback,
+  forwardRef, useImperativeHandle,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame, PLAYER_MAX_HP_VALUE } from '@/context/GameContext'
 import { streamQuestion, readStream } from '@/lib/api'
 import { CombatProvider, useCombatContext } from '@/context/CombatContext'
-import { PHASES, CombatQuestion } from '@/hooks/useCombat'
+import {
+  PHASES, CombatQuestion, InventoryItem, ItemRarity,
+  selectRandomItem, loadPlayerInventory, saveItemToPlayerInventory, MAX_INVENTORY,
+} from '@/hooks/useCombat'
 import ParallaxBackground from '@/components/ui/parallax-background'
 import TwinklingStars from '@/components/ui/twinkling-stars'
 import AnimatedSprite from '@/components/ui/animated-sprite'
 import Particles, { ParticlesHandle } from '@/components/ui/particles'
 import { useShake, ShakeStyles } from '@/hooks/useShake'
+
+// ─── Player animation frame sets ─────────────────────────────────────────────
+
+const IDLE_FRAMES = [
+  '/images/player/idle-1.png',
+  '/images/player/idle-2.png',
+  '/images/player/idle-3.png',
+  '/images/player/idle-4.png',
+]
+const DASH_FRAMES = [
+  '/images/player/player_dash_0.png',
+  '/images/player/player_dash_1.png',
+  '/images/player/player_dash_2.png',
+  '/images/player/player_dash_3.png',
+  '/images/player/player_dash_4.png',
+  '/images/player/player_dash_5.png',
+]
+const RETURN_FRAMES = [...DASH_FRAMES].reverse()
+const ATK1_FRAMES = ['/images/player/player4.png', '/images/player/player5.png']
+const ATK2_FRAMES = ['/images/player/player6.png', '/images/player/player7.png']
+
+// ─── Boss sprite configs ──────────────────────────────────────────────────────
+// To add a new boss: add an entry matching its `sprite_category`.
+// `attack` is optional — if absent the idle frames play at high speed during the swoop.
+
+interface BossSpriteConfig {
+  idle:    string[]
+  attack?: string[]   // optional dedicated attack frames
+}
+
+const BOSS_FRAMES: Record<string, BossSpriteConfig> = {
+  bat: {
+    idle: [
+      '/images/bat/idle_0.png', '/images/bat/idle_1.png', '/images/bat/idle_2.png',
+      '/images/bat/idle_3.png', '/images/bat/idle_4.png', '/images/bat/idle_5.png',
+      '/images/bat/idle_6.png', '/images/bat/idle_7.png', '/images/bat/idle_8.png',
+    ],
+    // No dedicated attack strip yet — idle plays faster during the swoop
+  },
+  // ── future bosses ──────────────────────────────────────────────────────────
+  // dragon: {
+  //   idle:   ['/images/dragon/idle_0.png', ...],
+  //   attack: ['/images/dragon/attack_0.png', ...],
+  // },
+}
+
+// ─── BossSprite ───────────────────────────────────────────────────────────────
+
+export interface BossSpriteHandle {
+  triggerAttack: (playerRef: React.RefObject<HTMLDivElement | null>) => void
+}
+
+const BossSprite = forwardRef<BossSpriteHandle, {
+  spriteSet:  BossSpriteSet
+  flashing:   boolean
+  isShaking:  boolean
+}>(({ spriteSet, flashing, isShaking }, ref) => {
+  const [frameKey,   setFrameKey]   = useState(0)
+  const [offsetX,    setOffsetX]    = useState(0)
+  const [transDash,  setTransDash]  = useState('none')
+  const selfRef = useRef<HTMLDivElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    triggerAttack(playerRef) {
+      const bossEl   = selfRef.current
+      const playerEl = playerRef.current
+      if (!bossEl || !playerEl) return
+
+      const bossRect   = bossEl.getBoundingClientRect()
+      const playerRect = playerEl.getBoundingClientRect()
+      // Boss is right-side, player is left-side — negative X moves boss toward player
+      const dashX = playerRect.right - bossRect.left + 16
+
+      // 1. Swoop toward player
+      setTransDash('transform 0.3s ease-in')
+      setOffsetX(dashX)
+      setFrameKey(k => k + 1) // Trigger sprite re-key to restart frames
+
+      // 2. Return
+      setTimeout(() => {
+        setTransDash('transform 0.28s ease-out')
+        setOffsetX(0)
+      }, 360)
+
+      // 3. Back to idle
+      setTimeout(() => {
+        setTransDash('none')
+      }, 700)
+    },
+  }))
+
+  return (
+    // Outer div: horizontal swoop (translateX)
+    <div ref={selfRef} style={{ transform: `translateX(${offsetX}px)`, transition: transDash }}>
+      {/* Shake wrapper */}
+      <div style={{ animation: isShaking ? getSpriteShakeAnimation(SPRITE_SHAKE_INTENSITY) : 'none' }}>
+        {/* Inner div: vertical float + filter — kept separate to avoid transform conflicts */}
+        <div style={{
+          filter: flashing
+            ? 'brightness(4) saturate(0)'
+            : 'drop-shadow(0 0 14px #FF333399) drop-shadow(0 0 30px #FF000044)',
+          transition: 'filter 0.1s',
+          animation: 'bossFloat 2s ease-in-out infinite',
+        }}>
+          <AnimatedSprite
+            key={frameKey}
+            framePaths={spriteSet.framePaths}
+            width={spriteSet.width}
+            height={spriteSet.height}
+            frameRate={spriteSet.frameRate}
+          />
+        </div>
+      </div>
+    </div>
+  )
+})
+BossSprite.displayName = 'BossSprite'
+
+// ─── Rarity helpers ───────────────────────────────────────────────────────────
+
+const RARITY_COLOR: Record<ItemRarity, string> = {
+  basic:     '#9999aa',
+  rare:      '#4477ff',
+  epic:      '#aa44ff',
+  legendary: '#FFD700',
+}
 
 interface BossSpriteSet {
   id: string
@@ -129,14 +261,14 @@ function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): Com
   }
 }
 
-// ─── Visual components ───────────────────────────────────────────────────────
+// ─── Visual components ────────────────────────────────────────────────────────
 
 function HpBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = Math.max(0, (value / max) * 100)
   const low = pct < 30
   return (
     <div>
-      <div style={{ height: 7, backgroundColor: '#050505', border: `1px solid ${color}33`, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: 7, backgroundColor: '#050505', border: `1px solid ${color}33`, overflow: 'hidden' }}>
         <div style={{
           height: '100%', width: `${pct}%`, backgroundColor: color,
           boxShadow: `0 0 ${low ? 12 : 5}px ${color}`,
@@ -169,7 +301,113 @@ function DamageNumber({ dmg, bossRef, playerRef }: { dmg: DmgNum; bossRef: React
       animation: 'dmgFloat 1.2s ease-out forwards',
       pointerEvents: 'none', zIndex: 100, whiteSpace: 'nowrap',
     }}>
-      {dmg.value > 0 ? `-${dmg.value}` : 'MISS'}
+      {dmg.value > 0 ? `-${dmg.value}` : 'BLOCKED'}
+    </div>
+  )
+}
+
+// ─── CaseOpening ─────────────────────────────────────────────────────────────
+
+function CaseOpening({ item, inventoryFull, onCollect }: {
+  item:          InventoryItem
+  inventoryFull: boolean
+  onCollect:     () => void
+}) {
+  const ITEM_W = 88, ITEM_GAP = 8, ITEM_FULL = ITEM_W + ITEM_GAP
+  const CONTAINER_W = 580, WINNER_IDX = 42, TOTAL = 58
+
+  const reel = useMemo<InventoryItem[]>(() => {
+    const arr: InventoryItem[] = []
+    for (let i = 0; i < TOTAL; i++) arr.push(i === WINNER_IDX ? item : selectRandomItem())
+    return arr
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const reelRef = useRef<HTMLDivElement>(null)
+  const [revealed, setRevealed] = useState(false)
+
+  useEffect(() => {
+    const el = reelRef.current
+    if (!el) return
+    el.style.transition = 'none'
+    el.style.transform  = 'translateX(0px)'
+    void el.offsetHeight
+    const finalX = -(WINNER_IDX * ITEM_FULL - CONTAINER_W / 2 + ITEM_FULL / 2)
+    const t1 = setTimeout(() => {
+      el.style.transition = `transform 5.5s cubic-bezier(0.08, 0.82, 0.17, 1.0)`
+      el.style.transform  = `translateX(${finalX}px)`
+    }, 200)
+    const t2 = setTimeout(() => setRevealed(true), 6000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+
+  const wc = RARITY_COLOR[item.rarity]
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      backgroundColor: '#03030af8',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      gap: 28, fontFamily: 'var(--font-pixel), monospace',
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 'clamp(12px, 2vw, 18px)', color: '#39FF14', letterSpacing: 4, textShadow: '0 0 20px #39FF1477', marginBottom: 6 }}>BOSS DEFEATED!</div>
+        <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#444', letterSpacing: 4 }}>ITEM DROP — SPIN TO WIN</div>
+      </div>
+
+      <div style={{ position: 'relative', width: CONTAINER_W, overflow: 'hidden', border: '1px solid #ffffff0f', backgroundColor: '#06060e' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '18%', background: 'linear-gradient(to right, #06060e, transparent)', zIndex: 3, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '18%', background: 'linear-gradient(to left, #06060e, transparent)', zIndex: 3, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, backgroundColor: '#FFD700', transform: 'translateX(-50%)', zIndex: 4, boxShadow: '0 0 10px #FFD700, 0 0 20px #FFD70055' }} />
+        <div style={{ position: 'absolute', left: '50%', top: 0, width: 0, height: 0, transform: 'translateX(-50%)', borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '9px solid #FFD700', zIndex: 5 }} />
+        <div style={{ position: 'absolute', left: '50%', bottom: 0, width: 0, height: 0, transform: 'translateX(-50%)', borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: '9px solid #FFD700', zIndex: 5 }} />
+        <div ref={reelRef} style={{ display: 'flex', gap: ITEM_GAP, padding: '10px 0', willChange: 'transform' }}>
+          {reel.map((ri, i) => {
+            const c = RARITY_COLOR[ri.rarity], win = i === WINNER_IDX
+            return (
+              <div key={i} style={{
+                flexShrink: 0, width: ITEM_W,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: 5, padding: '8px 4px',
+                border: `1px solid ${c}${win && revealed ? 'cc' : '28'}`,
+                backgroundColor: `${c}${win && revealed ? '18' : '08'}`,
+                transition: 'all 0.5s ease',
+                boxShadow: win && revealed ? `0 0 18px ${c}88` : 'none',
+              }}>
+                <img src={`/images/item_icons/${encodeURIComponent(ri.label)}.png`} alt={ri.label} style={{ width: 40, height: 40, imageRendering: 'pixelated', opacity: win && revealed ? 1 : 0.4 }} />
+                <div style={{ fontSize: 5, color: c, textAlign: 'center', letterSpacing: 1, opacity: win && revealed ? 1 : 0.4 }}>{ri.label}</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {revealed && (
+        <div style={{ animation: 'fadeSlideUp 0.4s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{ textAlign: 'center', border: `1px solid ${wc}44`, backgroundColor: `${wc}0d`, padding: '16px 36px', boxShadow: `0 0 24px ${wc}22` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', marginBottom: 8 }}>
+              <img src={`/images/item_icons/${encodeURIComponent(item.label)}.png`} alt={item.label} style={{ width: 36, height: 36, imageRendering: 'pixelated', filter: `drop-shadow(0 0 8px ${wc})` }} />
+              <div style={{ fontSize: 'clamp(8px, 1.4vw, 11px)', color: wc, letterSpacing: 3, textShadow: `0 0 10px ${wc}` }}>{item.label.toUpperCase()}</div>
+            </div>
+            <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#777', letterSpacing: 1, marginBottom: 6 }}>{item.description}</div>
+            <div style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: `${wc}99`, letterSpacing: 3, textTransform: 'uppercase' }}>{item.rarity}</div>
+          </div>
+          {inventoryFull ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 'clamp(5px, 0.9vw, 6px)', color: '#FF0040', letterSpacing: 2 }}>INVENTORY FULL ({MAX_INVENTORY}/{MAX_INVENTORY}) — ITEM LOST</div>
+              <button onClick={onCollect} style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(5px, 0.9vw, 7px)', letterSpacing: 3, color: '#555', backgroundColor: '#0a0a0a', border: '1px solid #222', padding: '10px 30px', cursor: 'pointer' }}>DISMISS</button>
+            </div>
+          ) : (
+            <button
+              onClick={onCollect}
+              style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(6px, 1vw, 8px)', letterSpacing: 3, color: '#39FF14', backgroundColor: '#001800', border: '1px solid #39FF1466', padding: '10px 30px', cursor: 'pointer', textShadow: '0 0 8px #39FF1488', boxShadow: '0 0 14px #39FF1422', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#003300'; e.currentTarget.style.borderColor = '#39FF14' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#001800'; e.currentTarget.style.borderColor = '#39FF1466' }}
+            >COLLECT ITEM</button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -198,8 +436,9 @@ const MOCK_CLUSTER = {
 
 export default function BattlePage() {
   const game = useGame()
-  const [questions, setQuestions] = useState<CombatQuestion[] | null>(null)
+  const [questions, setQuestions]   = useState<CombatQuestion[] | null>(null)
   const [fetchError, setFetchError] = useState(false)
+  const [savedInventory] = useState<InventoryItem[]>(() => typeof window !== 'undefined' ? loadPlayerInventory() : [])
 
   useEffect(() => {
     if (!game.currentBoss && process.env.NEXT_PUBLIC_MOCK === 'true') {
@@ -208,33 +447,25 @@ export default function BattlePage() {
     }
     if (!game.currentBoss) return
     let cancelled = false
-
     async function load() {
       const N = 6
-
       if (process.env.NEXT_PUBLIC_MOCK === 'true') {
         await new Promise(r => setTimeout(r, 700))
         if (!cancelled) setQuestions(Array.from({ length: N }, (_, i) => buildMockQuestion(game, i)))
         return
       }
-
       const qs: CombatQuestion[] = []
       for (let i = 0; i < N; i++) {
         try {
           const res = await streamQuestion(game)
-          let full  = ''
+          let full = ''
           await readStream(res, chunk => { full += chunk })
           qs.push(adaptQuestion(JSON.parse(full) as Record<string, unknown>))
-        } catch {
-          if (qs.length >= 3) break
-        }
+        } catch { if (qs.length >= 3) break }
       }
-
       if (cancelled) return
-      if (qs.length === 0) setFetchError(true)
-      else setQuestions(qs)
+      if (qs.length === 0) setFetchError(true); else setQuestions(qs)
     }
-
     load()
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -270,35 +501,34 @@ export default function BattlePage() {
   }
 
   return (
-    <CombatProvider
-      questions={questions}
-      playerMaxHP={PLAYER_MAX_HP_VALUE}
-      bossMaxHP={game.currentBoss.max_hp}
-    >
+    <CombatProvider questions={questions} initialInventory={savedInventory} playerMaxHP={PLAYER_MAX_HP_VALUE} bossMaxHP={game.currentBoss.max_hp}>
       <BattleUI />
     </CombatProvider>
   )
 }
 
-// ─── Inner component: all combat logic via useCombatContext ───────────────────
+// ─── BattleUI ─────────────────────────────────────────────────────────────────
 
 function BattleUI() {
   const router  = useRouter()
   const game    = useGame()
   const combat  = useCombatContext()
 
-  const [bossFlashing,   setBossFlashing]   = useState(false)
-  const [playerDamaged,  setPlayerDamaged]  = useState(false)
+  // ── Visual FX state ──
+  const [bossFlashing,  setBossFlashing]  = useState(false)
+  const [playerDamaged, setPlayerDamaged] = useState(false)
   const [bossSpriteShaking, setBossSpriteShaking] = useState(false)
   const [playerSpriteShaking, setPlayerSpriteShaking] = useState(false)
-  const [dmgNums,        setDmgNums]        = useState<DmgNum[]>([])
+  const [dmgNums,       setDmgNums]       = useState<DmgNum[]>([])
   const [bossSpriteSet,  setBossSpriteSet]  = useState<BossSpriteSet>(BOSS_SPRITE_POOLS[0])
-
   const { shakeClass, triggerShake } = useShake()
-  const dmgIdRef      = useRef(0)
-  const bossRef       = useRef<HTMLDivElement>(null)
-  const playerRef     = useRef<HTMLDivElement>(null)
-  const particlesRef  = useRef<ParticlesHandle>(null)
+  const dmgIdRef = useRef(0)
+
+  // ── Refs ──
+  const bossRef        = useRef<HTMLDivElement>(null)
+  const playerRef      = useRef<HTMLDivElement>(null)
+  const particlesRef   = useRef<ParticlesHandle>(null)
+  const bossAnimRef    = useRef<BossSpriteHandle>(null)
   const revealFiredRef = useRef(false)
 
   useEffect(() => {
@@ -316,34 +546,85 @@ function BattleUI() {
     }
   }, [game.currentBossIndex])
 
-  const addDmg = (value: number, color: string, side: 'boss' | 'player') => {
+
+  // ── Player animation ──
+  const [playerFrames,     setPlayerFrames]     = useState(IDLE_FRAMES)
+  const [playerFrameKey,   setPlayerFrameKey]   = useState(0)
+  const [playerFrameRate,  setPlayerFrameRate]  = useState(100)
+  const [playerX,          setPlayerX]          = useState(0)
+  const [playerTransStyle, setPlayerTransStyle] = useState('none')
+  const [playerFlipped,    setPlayerFlipped]    = useState(false)
+  const attackVariantRef = useRef<1 | 2>(1)
+
+  // ── Item slot hover ──
+  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
+
+  // ── Timeout damage detection ──
+  const prevPlayerHPRef = useRef<number | null>(null)
+
+  const setAnim = useCallback((frames: string[], rate: number) => {
+    setPlayerFrames(frames)
+    setPlayerFrameRate(rate)
+    setPlayerFrameKey(k => k + 1)
+  }, [])
+
+  const triggerPlayerAttack = useCallback(() => {
+    const bossEl   = bossRef.current
+    const playerEl = playerRef.current
+    if (!bossEl || !playerEl) return
+    const bossRect   = bossEl.getBoundingClientRect()
+    const playerRect = playerEl.getBoundingClientRect()
+    const dashX = bossRect.left + bossRect.width * 0.2 - playerRect.right
+    const v = attackVariantRef.current
+    attackVariantRef.current = v === 1 ? 2 : 1
+
+    setAnim(DASH_FRAMES, 55)
+    setPlayerFlipped(false)
+    setPlayerTransStyle('transform 0.35s ease-in')
+    setPlayerX(dashX)
+    setTimeout(() => setAnim(v === 1 ? ATK1_FRAMES : ATK2_FRAMES, 80), 360)
+    setTimeout(() => { setAnim(RETURN_FRAMES, 55); setPlayerFlipped(true); setPlayerTransStyle('transform 0.25s ease-out'); setPlayerX(0) }, 600)
+    setTimeout(() => { setAnim(IDLE_FRAMES, 100); setPlayerFlipped(false); setPlayerTransStyle('none') }, 870)
+  }, [setAnim])
+
+  const addDmg = useCallback((value: number, color: string, side: 'boss' | 'player') => {
     const id = dmgIdRef.current++
     setDmgNums(prev => [...prev, { id, value, color, side }])
     setTimeout(() => setDmgNums(prev => prev.filter(d => d.id !== id)), 1300)
-  }
+  }, [])
 
-  // REVEAL: trigger effects then advance
+  // ── REVEAL effect ──
   useEffect(() => {
     if (combat.state.phase !== PHASES.REVEAL) { revealFiredRef.current = false; return }
     if (revealFiredRef.current) return
     revealFiredRef.current = true
 
     if (combat.state.isCorrect) {
-      setBossFlashing(true)
-      setBossSpriteShaking(true)
+      // Player dashes to boss
+      triggerPlayerAttack()
+      // Boss impact at arrival (~360ms)
+      setTimeout(() => {
+        setBossFlashing(true)
+        setBossSpriteShaking(true)
       addDmg(combat.state.bossDamageOnCorrect, '#39FF14', 'boss')
-      const r = bossRef.current?.getBoundingClientRect()
-      if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#39FF14', '#00f0ff', '#ffffff'], count: 36, speed: 7, gravity: 0.25, size: 5 })
-      setTimeout(() => setBossFlashing(false), 300)
+        const r = bossRef.current?.getBoundingClientRect()
+        if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#39FF14', '#00f0ff', '#ffffff'], count: 36, speed: 7, gravity: 0.25, size: 5 })
+        setTimeout(() => setBossFlashing(false), 300)
+      }, 360)
       setTimeout(() => setBossSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     } else {
-      setPlayerDamaged(true)
-      setPlayerSpriteShaking(true)
-      addDmg(combat.state.playerDamageOnWrong, '#FF0040', 'player')
-      triggerShake({ intensity: SCREEN_SHAKE_INTENSITY })
-      const r = playerRef.current?.getBoundingClientRect()
-      if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#FF0040', '#ff6644', '#ffaa00'], count: 28, speed: 5, angle: -Math.PI / 2, spread: Math.PI, gravity: 0.3, size: 4 })
-      setTimeout(() => setPlayerDamaged(false), 500)
+      // Boss swoops at player
+      bossAnimRef.current?.triggerAttack(playerRef)
+      // Player damage effects at boss arrival (~300ms)
+      setTimeout(() => {
+        setPlayerDamaged(true)
+        setPlayerSpriteShaking(true)
+        addDmg(combat.state.playerDamageOnWrong, '#FF0040', 'player')
+        triggerShake({ intensity: SCREEN_SHAKE_INTENSITY })
+        const r = playerRef.current?.getBoundingClientRect()
+        if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#FF0040', '#ff6644', '#ffaa00'], count: 28, speed: 5, angle: -Math.PI / 2, spread: Math.PI, gravity: 0.3, size: 4 })
+        setTimeout(() => setPlayerDamaged(false), 500)
+      }, 300)
       setTimeout(() => setPlayerSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     }
 
@@ -352,25 +633,35 @@ function BattleUI() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combat.state.phase])
 
-  // EXPLANATION: auto-advance after 4s
+  // ── Timeout damage detection: boss swoops when timer runs out ──
   useEffect(() => {
-    if (combat.state.phase !== PHASES.EXPLANATION) return
-    const t = setTimeout(() => combat.explanationOK(), 4000)
-    return () => clearTimeout(t)
+    const prev = prevPlayerHPRef.current
+    prevPlayerHPRef.current = combat.state.playerHP
+    if (prev === null) return
+    // HP decreased while question is unanswered = timeout hit
+    if (combat.state.playerHP < prev && combat.state.phase === PHASES.ACTIVE && combat.state.selectedAnswer === null) {
+      bossAnimRef.current?.triggerAttack(playerRef)
+      const dmg = prev - combat.state.playerHP
+      if (dmg > 0) {
+        setTimeout(() => {
+          setPlayerDamaged(true)
+          triggerShake({ intensity: 'medium' })
+          addDmg(dmg, '#FF6600', 'player')
+          setTimeout(() => setPlayerDamaged(false), 500)
+        }, 300)
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [combat.state.phase])
+  }, [combat.state.playerHP])
 
-  // GAME_OVER: navigate
+  // ── GAME_OVER: navigate ──
   useEffect(() => {
     if (combat.state.phase !== PHASES.GAME_OVER) return
-    game.addScore(combat.state.currency)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    game.addScore((combat.state as any).currency ?? 0)
     if (combat.state.bossHP <= 0) {
-      if (game.currentBossIndex + 1 >= game.totalBosses) {
-        router.push('/result?outcome=victory')
-      } else {
-        game.advanceToNextBoss()
-        router.push('/transition')
-      }
+      if (game.currentBossIndex + 1 >= game.totalBosses) router.push('/result?outcome=victory')
+      else { game.advanceToNextBoss(); router.push('/transition') }
     } else {
       router.push('/result?outcome=death')
     }
@@ -420,14 +711,11 @@ function BattleUI() {
   const timerPct    = state.totalTime > 0 ? (state.timeRemaining / state.totalTime) * 100 : 0
   const timerLow    = timerPct < 25
 
-  // dialogue text varies by phase
-  const wrongTaunt = (isReveal && !state.isCorrect && state.selectedAnswer)
-    ? q?.wrong_taunts.find(t => t.answer === state.selectedAnswer)?.taunt
-    : undefined
+  const wrongTaunt = ((isReveal || isExplanation) && !state.isCorrect && state.selectedAnswer)
+    ? q?.wrong_taunts.find(t => t.answer === state.selectedAnswer)?.taunt : undefined
+  const dialogue = wrongTaunt ?? q?.dialogue ?? ''
 
-  const dialogue = isExplanation
-    ? (q?.explanation ?? '')
-    : (wrongTaunt ?? q?.dialogue ?? '')
+  const inventorySlots = state.inventory.slice(0, MAX_INVENTORY)
 
   return (
     <>
@@ -435,12 +723,13 @@ function BattleUI() {
       <Particles ref={particlesRef} />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        @keyframes bossFloat { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-10px)} }
-        @keyframes hpPulse   { 0%,100%{opacity:1} 50%{opacity:0.45} }
-        @keyframes dmgFloat  { 0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.3)} 100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(0.75)} }
-        @keyframes resultPop { 0%{transform:scale(0.6);opacity:0} 65%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
-        @keyframes scanlines { 0%{background-position:0 0} 100%{background-position:0 4px} }
+        @keyframes bossFloat   { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-10px)} }
+        @keyframes hpPulse     { 0%,100%{opacity:1} 50%{opacity:0.45} }
+        @keyframes dmgFloat    { 0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.3)} 100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(0.75)} }
+        @keyframes resultPop   { 0%{transform:scale(0.6);opacity:0} 65%{transform:scale(1.12)} 100%{transform:scale(1);opacity:1} }
+        @keyframes scanlines   { 0%{background-position:0 0} 100%{background-position:0 4px} }
         @keyframes fadeSlideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideDown   { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spriteShakeLight {
           0%   { transform: translate(0, 0); }
           20%  { transform: translate(-2px, 0); }
@@ -465,116 +754,141 @@ function BattleUI() {
           80%  { transform: translate(5px, 0); }
           100% { transform: translate(0, 0); }
         }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes blink       { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes choicePulse { 0%,100%{box-shadow:0 0 0 transparent} 50%{box-shadow:0 0 10px #00f0ff44} }
-        @keyframes timerPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes timerPulse  { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes slotPulse   { 0%,100%{opacity:1} 50%{opacity:0.65} }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: #FF004033; }
       `}</style>
+
+      {/* Case-opening overlay */}
+      {state.phase === PHASES.CASE_OPENING && state.pendingReward && (
+        <CaseOpening
+          item={state.pendingReward}
+          inventoryFull={loadPlayerInventory().length >= MAX_INVENTORY}
+          onCollect={() => { saveItemToPlayerInventory(state.pendingReward!); combat.caseComplete() }}
+        />
+      )}
 
       <div style={{ height: '100vh', width: '100vw', backgroundColor: '#03030a', fontFamily: 'var(--font-pixel), monospace', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }} className={shakeClass}>
 
         {dmgNums.map(d => <DamageNumber key={d.id} dmg={d} bossRef={bossRef} playerRef={playerRef} />)}
 
-        {/* ═══ SCENE (TOP) ═══ */}
+        {/* ═══ SCENE ═══ */}
         <div style={{ position: 'relative', zIndex: 1, height: '60vh', flexShrink: 0, overflow: 'hidden' }}>
 
           <ParallaxBackground layers={[{ imagePath: '/images/nebula.png', parallaxIntensity: 5 }]} zIndex={0} showOverlay backgroundColor="#03030a" position="absolute" />
           <TwinklingStars count={90} minSize={1} maxSize={2} color="#ffffff" zIndex={1} position="absolute" />
           <ParallaxBackground layers={[{ imagePath: '/images/planets.png', parallaxIntensity: 10 }]} zIndex={2} showOverlay={false} position="absolute" />
-
           <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px)', animation: 'scanlines 0.1s linear infinite' }} />
-
-          {/* Ground layer */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 4, height: '34%', pointerEvents: 'none' }}>
-            <img
-              src="/images/ground.png"
-              alt="ground"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'center bottom',
-                imageRendering: 'pixelated',
-                display: 'block',
-              }}
-            />
+            <img src="/images/ground.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center bottom', imageRendering: 'pixelated', display: 'block' }} />
           </div>
-
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', background: 'linear-gradient(to bottom, transparent, #0a0015aa)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: '28%', left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #6633ff33 25%, #9966ff55 50%, #6633ff33 75%, transparent)' }} />
 
-          {/* Boss HP card */}
+          {/* Boss HP */}
           <div style={{ position: 'absolute', top: 12, left: 14, backgroundColor: '#060008', border: '1px solid #FF004033', padding: '9px 13px', width: 200, boxShadow: '0 0 24px #FF00401a, inset 0 0 12px #0a000a', zIndex: 5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF3333', letterSpacing: 2, textShadow: '0 0 8px #FF333388', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>
-                {game.currentBoss.name.toUpperCase()}
-              </span>
+              <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF3333', letterSpacing: 2, textShadow: '0 0 8px #FF333388', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{game.currentBoss.name.toUpperCase()}</span>
               {bossHPPct < 30 && <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#FFD700', animation: 'blink 0.55s infinite', letterSpacing: 1, flexShrink: 0 }}>LOW HP</span>}
             </div>
             <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" />
           </div>
 
-          {/* Score / turn */}
+          {/* Score */}
           <div style={{ position: 'absolute', top: 12, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px #FFD70055' }}>
-              {game.score.toLocaleString()} <span style={{ color: '#443300' }}>PTS</span>
-            </div>
-            <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#555', letterSpacing: 2 }}>
-              BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#2a2a2a' }}>/{game.totalBosses}</span>
-            </div>
-            <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#333', letterSpacing: 2 }}>
-              STREAK <span style={{ color: state.correctStreak > 0 ? '#FFD700' : '#555' }}>{state.correctStreak}</span>
-            </div>
+            <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px #FFD70055' }}>{game.score.toLocaleString()} <span style={{ color: '#443300' }}>PTS</span></div>
+            <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#555', letterSpacing: 2 }}>BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#2a2a2a' }}>/{game.totalBosses}</span></div>
+            <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#333', letterSpacing: 2 }}>STREAK <span style={{ color: state.correctStreak > 0 ? '#FFD700' : '#555' }}>{state.correctStreak}</span></div>
           </div>
 
-          {/* Boss sprite */}
+          {/* Boss sprite — unified component handling idle, swoop, and shake */}
           <div ref={bossRef} style={{ position: 'absolute', right: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 5 }}>
-            <div
-              style={{
-                filter: bossFlashing ? 'brightness(4) saturate(0)' : 'drop-shadow(0 0 14px #FF333399) drop-shadow(0 0 30px #FF000044)',
-                transition: 'filter 0.1s',
-                animation: 'bossFloat 2s ease-in-out infinite',
-              }}
-            >
-              <div style={{ animation: bossSpriteShaking ? getSpriteShakeAnimation(SPRITE_SHAKE_INTENSITY) : 'none' }}>
-                <AnimatedSprite
-                  framePaths={bossSpriteSet.framePaths}
-                  width={bossSpriteSet.width}
-                  height={bossSpriteSet.height}
-                  frameRate={bossSpriteSet.frameRate}
-                />
-              </div>
-            </div>
+            <BossSprite
+              ref={bossAnimRef}
+              spriteSet={bossSpriteSet}
+              flashing={bossFlashing}
+              isShaking={bossSpriteShaking}
+            />
             <div style={{ width: 100, height: 8, borderRadius: '50%', background: 'radial-gradient(ellipse, #1802025d 0%, transparent 70%)' }} />
           </div>
 
           {/* Player sprite */}
-          <div ref={playerRef} style={{ position: 'absolute', left: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, zIndex: 5 }}>
-            <div
-              style={{
-                filter: playerDamaged ? 'brightness(5) saturate(0)' : 'drop-shadow(0 0 10px #00f0ffaa) drop-shadow(0 0 22px #00f0ff44)',
-                transition: 'filter 0.15s',
-              }}
-            >
-              <div style={{ animation: playerSpriteShaking ? getSpriteShakeAnimation(SPRITE_SHAKE_INTENSITY) : 'none' }}>
-                <AnimatedSprite
-                  framePaths={[
-                    '/images/player/idle-1.png',
-                    '/images/player/idle-2.png',
-                    '/images/player/idle-3.png',
-                    '/images/player/idle-4.png',
-                  ]}
-                  width={256}
-                  height={64}
-                  frameRate={100}
-                />
-              </div>
+          <div
+            ref={playerRef}
+            style={{
+              position: 'absolute', left: '19%', bottom: '20%',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, zIndex: 5,
+              transform: `translateX(${playerX}px)`,
+              transition: playerTransStyle,
+            }}
+          >
+            <div style={{
+              filter: playerDamaged ? 'brightness(5) saturate(0)' : 'drop-shadow(0 0 10px #00f0ffaa) drop-shadow(0 0 22px #00f0ff44)',
+              transform: playerFlipped ? 'scaleX(-1)' : 'none',
+              transition: 'filter 0.15s',
+            }}>
+              <AnimatedSprite key={playerFrameKey} framePaths={playerFrames} width={256} height={64} frameRate={playerFrameRate} />
             </div>
-            <div style={{ width: 70, height: 6, borderRadius: '50%', background: 'radial-gradient(ellipse, #0312137b 0%, transparent 70%)' }} /> {/* subtle glow under player feet */}
+            <div style={{ width: 70, height: 6, borderRadius: '50%', background: 'radial-gradient(ellipse, #0312137b 0%, transparent 70%)' }} />
           </div>
 
-          {/* Player HP card */}
+          {/* Item slots — bottom-left */}
+          <div style={{ position: 'absolute', bottom: 10, left: 14, display: 'flex', gap: 6, zIndex: 5 }}>
+            {Array.from({ length: MAX_INVENTORY }).map((_, slotIdx) => {
+              const item    = inventorySlots[slotIdx]
+              const canUse  = isActive && !!item
+              const isHover = hoveredSlot === slotIdx
+              const c       = item ? RARITY_COLOR[item.rarity] : '#222'
+              return (
+                <div
+                  key={slotIdx}
+                  onMouseEnter={() => setHoveredSlot(slotIdx)}
+                  onMouseLeave={() => setHoveredSlot(null)}
+                  onClick={() => { if (canUse) combat.useItem(item) }}
+                  style={{
+                    position: 'relative',
+                    width: 46, height: 46,
+                    border: item ? `1px solid ${c}${isHover ? 'bb' : '44'}` : '1px dashed #1c1c1c',
+                    backgroundColor: item ? `${c}${isHover ? '20' : '0c'}` : '#0a0a0a',
+                    cursor: canUse ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.12s',
+                    boxShadow: canUse && isHover ? `0 0 14px ${c}55` : 'none',
+                    opacity: item && !isActive ? 0.45 : 1,
+                    animation: canUse ? 'slotPulse 2s ease-in-out infinite' : 'none',
+                  }}
+                >
+                  {item
+                    ? <img src={`/images/item_icons/${encodeURIComponent(item.label)}.png`} alt={item.label} style={{ width: 34, height: 34, imageRendering: 'pixelated' }} />
+                    : <div style={{ width: 20, height: 20, border: '1px dashed #1c1c1c', opacity: 0.3 }} />
+                  }
+                  <div style={{ position: 'absolute', bottom: 2, right: 3, fontSize: 4, color: item ? `${c}77` : '#1c1c1c', fontFamily: 'var(--font-pixel), monospace' }}>{slotIdx + 1}</div>
+
+                  {/* Tooltip */}
+                  {item && isHover && (
+                    <div style={{
+                      position: 'absolute', bottom: '115%', left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: '#08080f', border: `1px solid ${c}44`,
+                      padding: '7px 10px', width: 130, zIndex: 20,
+                      pointerEvents: 'none',
+                      boxShadow: `0 0 16px #00000099, 0 0 6px ${c}22`,
+                    }}>
+                      <div style={{ fontSize: 6, color: c, letterSpacing: 1, marginBottom: 4 }}>{item.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 5, color: '#666', lineHeight: 1.5 }}>{item.description}</div>
+                      <div style={{ fontSize: 4, color: `${c}77`, marginTop: 4, letterSpacing: 2, textTransform: 'uppercase' }}>{item.rarity}</div>
+                      {!isActive && <div style={{ fontSize: 4, color: '#FF004077', marginTop: 3 }}>ACTIVE ONLY</div>}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Player HP */}
           <div style={{ position: 'absolute', bottom: 10, right: 14, backgroundColor: '#000d10', border: '1px solid #00f0ff28', padding: '9px 13px', width: 200, boxShadow: '0 0 24px #00f0ff18, inset 0 0 12px #000d10', zIndex: 5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#00f0ff', letterSpacing: 2, textShadow: '0 0 8px #00f0ff66' }}>PLAYER</span>
@@ -584,96 +898,85 @@ function BattleUI() {
           </div>
         </div>
 
-        {/* ═══ BATTLE MENU (BOTTOM) ═══ */}
+        {/* ═══ BATTLE MENU ═══ */}
         <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0, borderTop: '1px solid #ffffff14', backgroundColor: '#05050d', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {/* Timer bar */}
+          {/* Timer bar — hidden during explanation */}
           <div style={{ height: 3, flexShrink: 0, backgroundColor: '#0a0a0a' }}>
             <div style={{
               height: '100%',
-              width: `${timerPct}%`,
+              width: isExplanation ? '0%' : `${timerPct}%`,
               backgroundColor: timerLow ? '#FF0040' : '#00f0ff',
               boxShadow: `0 0 8px ${timerLow ? '#FF004099' : '#00f0ff66'}`,
-              transition: 'width 0.1s linear, background-color 0.3s',
-              animation: timerLow ? 'timerPulse 0.4s ease-in-out infinite' : 'none',
+              transition: isExplanation ? 'width 0.4s ease' : 'width 0.1s linear, background-color 0.3s',
+              animation: !isExplanation && timerLow ? 'timerPulse 0.4s ease-in-out infinite' : 'none',
             }} />
           </div>
 
           <div style={{ height: 2, flexShrink: 0, background: 'linear-gradient(90deg, transparent, #FF004044 25%, #9933ff55 50%, #00f0ff44 75%, transparent)' }} />
 
           {/* Dialogue */}
-          <div style={{ padding: '10px 18px 8px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 70 }}>
-            <div style={{ fontSize: 'clamp(4px, 0.75vw, 5px)', color: isExplanation ? '#00f0ff44' : '#FF004044', letterSpacing: 3, marginBottom: 5, textTransform: 'uppercase' }}>
-              {isExplanation ? 'EXPLANATION:' : `${game.currentBoss.name}:`}
+          <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 80 }}>
+            <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#FF004066', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
+              {game.currentBoss.name}:
             </div>
-            <p style={{ margin: 0, fontSize: 'clamp(7px, 1.2vw, 9px)', color: isExplanation ? '#aacccc' : '#cccccc', lineHeight: 2 }}>
-              {isLoading
-                ? <span style={{ color: '#2a2a2a', animation: 'blink 0.8s infinite', display: 'inline-block' }}>▋</span>
-                : dialogue
-              }
-              {(isActive) && <span style={{ animation: 'blink 0.6s infinite', color: '#FF3333', marginLeft: 2 }}>▋</span>}
+            <p style={{
+              margin: 0,
+              fontSize: 'clamp(12px, 1.5vw, 16px)',
+              color: (isReveal && !state.isCorrect) ? '#FF7755' : '#dddddd',
+              lineHeight: 1.9,
+              textShadow: (isReveal && !state.isCorrect) ? '0 0 12px #FF440022' : 'none',
+              letterSpacing: 0.5,
+            }}>
+              {isLoading ? <span style={{ color: '#2a2a2a', animation: 'blink 0.8s infinite', display: 'inline-block' }}>▋</span> : dialogue}
+              {isActive && <span style={{ animation: 'blink 0.6s infinite', color: '#FF3333', marginLeft: 2 }}>▋</span>}
             </p>
-
-            {/* Verdict badge */}
-            {isReveal && state.isCorrect === true && (
-              <div style={{ position: 'absolute', top: 10, right: 18, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>
-            )}
-            {isReveal && state.isCorrect === false && (
-              <div style={{ position: 'absolute', top: 10, right: 18, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>
-            )}
+            {(isReveal || isExplanation) && state.isCorrect === true  && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>}
+            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>}
           </div>
 
-          {/* Question + choices */}
-          <div style={{ flex: 1, minHeight: 0, padding: '10px 18px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, overflowY: 'auto' }}>
+          {/* Content */}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {isLoading && (
-              <div style={{ textAlign: 'center', fontSize: 'clamp(5px, 0.9vw, 6px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
                 ENEMY IS CHARGING...
               </div>
             )}
 
-            {isExplanation && (
-              <div style={{ textAlign: 'center', fontSize: 'clamp(5px, 0.9vw, 6px)', color: '#444', letterSpacing: 2 }}>
-                NEXT QUESTION IN 4S...
-              </div>
-            )}
+            {/* Question + choices — visible during ACTIVE, REVEAL, and EXPLANATION */}
+            {(isActive || isReveal || isExplanation) && q && (
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-            {(isActive || isReveal) && q && (
-              <div style={{ display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', height: '100%' }}>
+                {/* Question row */}
+                <div style={{ flex: 1, minHeight: 0, padding: '10px 18px 8px', display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', overflow: 'hidden' }}>
 
-                {/* Question text */}
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                  <p style={{ margin: 0, fontSize: 'clamp(6px, 1.1vw, 8px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
-                    {q.question_text}
-                  </p>
-                </div>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 'clamp(13px, 1.6vw, 18px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
+                      {q.question_text}
+                    </p>
+                  </div>
 
-                <div style={{ width: 1, backgroundColor: '#ffffff0a', flexShrink: 0 }} />
+                  <div style={{ width: 1, backgroundColor: '#ffffff0a', flexShrink: 0 }} />
 
-                {/* MCQ choices */}
-                <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'center' }}>
-                  {choices.map(choice => {
-                    const isSelected  = state.selectedAnswer === choice.id
-                    const isCorrectId = choice.id === q.correctAnswerId
-                    const isDisabled  = !isActive
+                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'center' }}>
+                    {choices.map(choice => {
+                      const isSel  = state.selectedAnswer === choice.id
+                      const isCorr = choice.id === q.correctAnswerId
+                      const isDis  = !isActive
 
-                    let bg     = '#050510'
-                    let border = '#00f0ff33'
-                    let color  = '#00f0ff'
-
-                    if (isReveal) {
-                      if (isCorrectId)       { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
-                      else if (isSelected)   { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
-                      else                   { bg = '#080808'; border = '#111';    color = '#333' }
-                    } else if (isDisabled) {
-                      bg = '#080808'; border = '#111'; color = '#333'
-                    }
+                      let bg = '#050510', border = '#00f0ff33', color = '#00f0ff'
+                      if (isReveal || isExplanation) {
+                        if (isCorr)      { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
+                        else if (isSel)  { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
+                        else             { bg = '#080808'; border = '#111';    color = '#333'    }
+                      } else if (isDis)  { bg = '#080808'; border = '#111';    color = '#333'    }
 
                     return (
                       <button
                         key={choice.id}
                         onClick={() => handleAnswer(choice.id)}
-                        disabled={isDisabled}
+                        disabled={isDis}
                         style={{
                           fontFamily: 'var(--font-pixel), monospace',
                           fontSize: 'clamp(6px, 1vw, 8px)',
@@ -682,7 +985,7 @@ function BattleUI() {
                           border: `1px solid ${border}`,
                           padding: '9px 12px',
                           textAlign: 'left',
-                          cursor: isDisabled ? 'default' : 'pointer',
+                          cursor: isDis ? 'default' : 'pointer',
                           transition: 'all 0.15s',
                           lineHeight: 1.7,
                           animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
@@ -695,6 +998,51 @@ function BattleUI() {
                     )
                   })}
                 </div>
+                </div>
+
+                {/* Explanation strip — slides in after answering */}
+                {isExplanation && (
+                  <div style={{
+                    flexShrink: 0,
+                    borderTop: '1px solid #00f0ff18',
+                    backgroundColor: '#020209',
+                    padding: '10px 18px 12px',
+                    display: 'flex', alignItems: 'flex-start', gap: 16,
+                    animation: 'slideDown 0.35s ease',
+                    overflow: 'hidden',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#00f0ff44', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
+                        Explanation
+                      </div>
+                      <p style={{ margin: 0, fontSize: 'clamp(12px, 1.4vw, 15px)', color: '#99bbbb', lineHeight: 1.85 }}>
+                        {q.explanation}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => combat.explanationOK()}
+                      style={{
+                        flexShrink: 0,
+                        fontFamily: 'var(--font-pixel), monospace',
+                        fontSize: 'clamp(10px, 1.1vw, 13px)',
+                        letterSpacing: 2,
+                        color: '#00f0ff',
+                        backgroundColor: '#001018',
+                        border: '1px solid #00f0ff44',
+                        padding: '10px 20px',
+                        cursor: 'pointer',
+                        alignSelf: 'center',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#002030'; e.currentTarget.style.borderColor = '#00f0ff' }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#001018'; e.currentTarget.style.borderColor = '#00f0ff44' }}
+                    >
+                      NEXT →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
