@@ -211,8 +211,7 @@ function QuestionCard({ result, idx }: {
 
   return (
     <div style={{
-      clipPath: OCT8,
-      border: `1px solid ${borderColor}33`,
+      borderLeft: `2px solid ${borderColor}`,
       backgroundColor: correct ? '#080f0a' : '#0f0808',
       animation: `fadeSlideUp 0.35s ease ${Math.min(idx * 0.04, 0.6)}s both`,
     }}>

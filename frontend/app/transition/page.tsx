@@ -94,8 +94,7 @@ function ResultCard({ result, index }: {
   return (
     <div
       style={{
-        clipPath: OCT8,
-        border: `1px solid ${borderColor}44`,
+        borderLeft: `2px solid ${borderColor}`,
         backgroundColor: correct ? '#080f0a' : '#0f0808',
         padding: '12px 14px',
         cursor: 'pointer',
@@ -103,23 +102,18 @@ function ResultCard({ result, index }: {
       }}
       onClick={() => setExpanded(e => !e)}
     >
-      {/* Badge */}
-      <div style={{
-        position: 'absolute' as const, top: 10, right: 10,
-        fontSize: 'clamp(9px, 1vw, 11px)', color: hiColor, letterSpacing: 2,
-      }}>
-        {correct ? '✓ CORRECT' : '✗ WRONG'}
-      </div>
-
-      {/* Concept + damage */}
+      {/* Concept + damage + badge row */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2 }}>Q{index + 1}</span>
         <span style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.gold, letterSpacing: 1 }}>
           {result.conceptName}
         </span>
+        <span style={{ marginLeft: 'auto', fontSize: 'clamp(9px, 1vw, 11px)', color: hiColor, letterSpacing: 2 }}>
+          {correct ? '✓' : '✗'}
+        </span>
         {correct
-          ? <span style={{ fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.greenHi, marginLeft: 'auto', paddingRight: 70 }}>-{result.damage} HP to boss</span>
-          : <span style={{ fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.redHi,   marginLeft: 'auto', paddingRight: 70 }}>-{result.playerDamage} HP to you</span>
+          ? <span style={{ fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.greenHi }}>-{result.damage} HP</span>
+          : <span style={{ fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.redHi   }}>-{result.playerDamage} HP</span>
         }
       </div>
 
