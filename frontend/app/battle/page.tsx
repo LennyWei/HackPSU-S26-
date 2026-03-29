@@ -320,8 +320,8 @@ function buildMockFrqQuestion(game: ReturnType<typeof useGame>, index: number): 
 
 // ─── Visual components ────────────────────────────────────────────────────────
 
-function HpBar({ value, max, color, height = 7, segments = false }: {
-  value: number; max: number; color: string; height?: number; segments?: boolean
+function HpBar({ value, max, color, height = 7 }: {
+  value: number; max: number; color: string; height?: number
 }) {
   const pct = Math.max(0, (value / max) * 100)
   const [chipPct, setChipPct] = useState(pct)
@@ -340,7 +340,7 @@ function HpBar({ value, max, color, height = 7, segments = false }: {
     setChipPct(prevPct)
     const t = window.setTimeout(() => {
       setChipPct(pct)
-    }, 160)
+    }, 420)
 
     return () => window.clearTimeout(t)
   }, [pct])
@@ -367,7 +367,7 @@ function HpBar({ value, max, color, height = 7, segments = false }: {
           width: `${chipPct}%`,
           backgroundColor: '#ff8a33',
           opacity: 0.9,
-          transition: 'width 0.65s linear',
+          transition: 'width 1.2s linear',
           zIndex: 1,
         }} />
 
@@ -382,17 +382,6 @@ function HpBar({ value, max, color, height = 7, segments = false }: {
           animation: low ? 'hpPulse 0.5s ease-in-out infinite' : 'none',
           zIndex: 2,
         }} />
-        {/* Segment dividers */}
-        {segments && Array.from({ length: 9 }, (_, i) => (
-          <div key={i} style={{
-            position: 'absolute', top: 0, bottom: 0,
-            left: `${(i + 1) * 10}%`,
-            width: 1, backgroundColor: '#00000055',
-            pointerEvents: 'none',
-            zIndex: 3,
-          }} />
-        ))}
-
         <div style={{
           position: 'absolute',
           inset: 0,
@@ -1053,14 +1042,14 @@ function BattleUI() {
                 }}>DANGER</span>
               )}
             </div>
-            <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" height={14} segments />
+            <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" height={10} />
           </div>
 
           {/* Score — top right */}
           <div style={{ position: 'absolute', top: 10, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 'clamp(7px, 1.1vw, 10px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>{game.score.toLocaleString()} <span style={{ color: '#ffffff' }}>PTS</span></div>
-            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>BOSS <span style={{ color: '#ffffff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#ffffff' }}>/{game.totalBosses}</span></div>
-            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>STREAK <span style={{ color: '#ffffff' }}>{state.correctStreak}</span></div>
+            <div style={{ fontSize: 'clamp(7px, 1.1vw, 10px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}><span style={{ color: '#FFD700' }}>{game.score.toLocaleString()}</span> <span style={{ color: '#ffffff' }}>PTS</span></div>
+            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#ffffff' }}>/</span><span style={{ color: '#6f6f6f' }}>{game.totalBosses}</span></div>
+            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>STREAK <span style={{ color: state.correctStreak > 0 ? '#FFD700' : '#6f6f6f' }}>{state.correctStreak}</span></div>
           </div>
 
           {/* Boss sprite — unified component handling idle, swoop, and shake */}
@@ -1177,7 +1166,7 @@ function BattleUI() {
                 )}
               </div>
             </div>
-            <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" height={18} segments />
+            <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" height={12} />
           </div>
         </div>
 
