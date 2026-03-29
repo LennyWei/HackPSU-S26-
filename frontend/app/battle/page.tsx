@@ -218,9 +218,16 @@ const BOSS_SPRITE_POOLS: BossSpriteSet[] = [
 
 // ─── Question adapter ─────────────────────────────────────────────────────────
 
+function normalizeChoiceText(rawText: string): string {
+  return String(rawText ?? '')
+    .replace(/\r?\n+/g, ' ')
+    .replace(/^\s*[A-D][)\.]\s*/i, '')
+    .trim()
+}
+
 function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
   const options = (raw.options as Array<{ id: string; text: string }>) ?? []
-  const choices = options.map(opt => ({ id: opt.id, text: opt.text }))
+  const choices = options.map(opt => ({ id: opt.id, text: normalizeChoiceText(opt.text) }))
   const correct = (raw.correct_answer as string) ?? ''
 
   // explanation may be a plain string or a per-choice dict {"A":"...", "B":"..."}
@@ -1047,12 +1054,6 @@ function BattleUI() {
             <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" height={10} />
           </div>
 
-          {/* Score — top right */}
-          <div style={{ position: 'absolute', top: 10, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 'clamp(7px, 1.1vw, 10px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}><span style={{ color: '#FFD700' }}>{game.score.toLocaleString()}</span> <span style={{ color: '#ffffff' }}>PTS</span></div>
-            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#ffffff' }}>/</span><span style={{ color: '#6f6f6f' }}>{game.totalBosses}</span></div>
-            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>STREAK <span style={{ color: state.correctStreak > 0 ? '#FFD700' : '#6f6f6f' }}>{state.correctStreak}</span></div>
-          </div>
 
           {/* Boss sprite — unified component handling idle, swoop, and shake */}
           <div ref={bossRef} style={{ position: 'absolute', right: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 5 }}>
@@ -1211,7 +1212,7 @@ function BattleUI() {
           <div style={{ padding: '16px 20px', flexShrink: 0, minHeight: 60, display: 'flex', alignItems: 'center', position: 'relative' }}>
             <p style={{
               margin: 0,
-              fontSize: 'clamp(14px, 1.6vw, 18px)',
+              fontSize: 'clamp(16px, 2vw, 22px)',
               color: (isReveal && !state.isCorrect) ? '#FF4400' : '#dddddd',
               lineHeight: 1.6,
               fontFamily: 'var(--font-mono), monospace'
@@ -1237,7 +1238,7 @@ function BattleUI() {
                   display: 'flex', flexDirection: 'column',
                   overflowY: 'auto'
                 }}>
-                  <p style={{ margin: 0, fontSize: 'clamp(14px, 1.8vw, 20px)', color: '#FFD700', lineHeight: 1.8, fontFamily: 'var(--font-mono), monospace' }}>
+                  <p style={{ margin: 0, fontSize: 'clamp(16px, 2.2vw, 24px)', color: '#FFD700', lineHeight: 1.8, fontFamily: 'var(--font-mono), monospace' }}>
                     {q.question_text}
                   </p>
                 </div>
@@ -1294,9 +1295,9 @@ function BattleUI() {
                             className="pixel-corners retro-hover-cyan"
                             onClick={() => combat.explanationOK()}
                             style={{
-                              flex: 2, padding: '14px',
+                              flex: 2, padding: '18px 16px',
                               backgroundColor: '#001a1a', border: '2px solid #00f0ff', color: '#00f0ff',
-                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
                               cursor: 'pointer'
                             }}
                           >NEXT ►</button>
@@ -1327,13 +1328,13 @@ function BattleUI() {
                           const hasExp = !!(isExplanation && q.explanations && q.explanations[choice.id])
                           const isOpen = openExps.includes(choice.id)
 
-                          let bg = '#050510', border = '#00f0ff33', color = '#00f0ff', badgeBg = '#00f0ff11'
+                          let bg = '#08101a', border = '#00b7ff66', color = '#b8f3ff', badgeBg = '#00f0ff22'
                           if (isReveal || isExplanation) {
-                            if (isCorr) { bg = '#002010'; border = '#39FF14'; color = '#39FF14'; badgeBg = '#39FF1433' }
-                            else if (isSel) { bg = '#200005'; border = '#FF0040'; color = '#FF0040'; badgeBg = '#FF004033' }
-                            else { bg = '#080808'; border = '#333333'; color = '#666666'; badgeBg = '#222222' }
+                            if (isCorr) { bg = '#002714'; border = '#39FF14'; color = '#99ff99'; badgeBg = '#39FF1433' }
+                            else if (isSel) { bg = '#300006'; border = '#FF0040'; color = '#ff7a95'; badgeBg = '#FF004033' }
+                            else { bg = '#0c0c0c'; border = '#444444'; color = '#888888'; badgeBg = '#222222' }
                           } else if (isSel) {
-                            bg = '#201500'; border = '#FFD700'; color = '#FFD700'; badgeBg = '#FFD70033'
+                            bg = '#221900'; border = '#FFD700'; color = '#FFD700'; badgeBg = '#FFD70033'
                           }
 
                           return (
@@ -1349,22 +1350,27 @@ function BattleUI() {
                                 style={{
                                   flex: 1,
                                   display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                                  justifyContent: 'space-between',
                                   backgroundColor: bg, border: `2px solid ${border}`, color,
-                                  padding: '12px', cursor: isDis ? 'default' : 'pointer',
+                                  padding: '18px 16px', cursor: isDis ? 'default' : 'pointer',
                                   fontFamily: 'var(--font-mono), monospace',
-                                  fontSize: 'clamp(12px, 1.4vw, 16px)', textAlign: 'left',
-                                  lineHeight: 1.5, transition: 'all 0.15s',
+                                  fontSize: 'clamp(14px, 2vw, 20px)', textAlign: 'left',
+                                  minHeight: 100, lineHeight: 1.55, transition: 'all 0.15s',
                                   overflowY: 'auto'
                                 }}
                               >
-                                <div style={{ 
-                                  padding: '4px 8px', backgroundColor: badgeBg, 
-                                  fontFamily: 'var(--font-pixel), monospace', fontSize: '10px', 
-                                  marginBottom: 8, letterSpacing: 1 
-                                }}>
-                                  [{['A','B','C','D'][i]}]
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                                  <span style={{
+                                    padding: '4px 8px', backgroundColor: badgeBg,
+                                    fontFamily: 'var(--font-pixel), monospace', fontSize: '11px',
+                                    letterSpacing: 1, whiteSpace: 'nowrap'
+                                  }}>
+                                    [{['A','B','C','D'][i]}]
+                                  </span>
+                                  <span style={{ display: 'block', flex: 1, fontSize: 'clamp(14px, 2vw, 20px)', lineHeight: 1.55, color }}>
+                                    {choice.text}
+                                  </span>
                                 </div>
-                                {choice.text}
                               </button>
                               {/* The WHY dropdown */}
                               {hasExp && (
@@ -1403,9 +1409,9 @@ function BattleUI() {
                           onClick={() => combat.selectAnswer('')}
                           disabled={!isActive || !state.selectedAnswer}
                           style={{
-                            flex: 1, padding: '14px',
+                            flex: 1, padding: '18px 16px',
                             backgroundColor: '#1a0005', border: '2px solid #FF0040', color: '#FF0040',
-                            fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                            fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
                             cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer'
                           }}
                         >CLEAR</button>
@@ -1414,9 +1420,9 @@ function BattleUI() {
                             className="pixel-corners retro-hover-cyan"
                             onClick={() => combat.explanationOK()}
                             style={{
-                              flex: 2, padding: '14px',
+                              flex: 2, padding: '18px 16px',
                               backgroundColor: '#001a1a', border: '2px solid #00f0ff', color: '#00f0ff',
-                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
                               cursor: 'pointer'
                             }}
                           >NEXT ►</button>
@@ -1426,9 +1432,9 @@ function BattleUI() {
                             onClick={() => state.selectedAnswer && handleAnswer(state.selectedAnswer)}
                             disabled={!isActive || !state.selectedAnswer}
                             style={{
-                              flex: 2, padding: '14px',
+                              flex: 2, padding: '16px',
                               backgroundColor: '#1a1800', border: '2px solid #FFD700', color: '#FFD700',
-                              fontFamily: 'var(--font-pixel), monospace', fontSize: '10px',
+                              fontFamily: 'var(--font-pixel), monospace', fontSize: '12px',
                               cursor: (!isActive || !state.selectedAnswer) ? 'default' : 'pointer',
                               transition: 'all 0.15s'
                             }}

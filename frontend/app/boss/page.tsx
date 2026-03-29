@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame } from '@/context/GameContext'
 import Starfield from '@/components/ui/Starfield'
+import Particles, { ParticlesHandle } from '@/components/ui/particles'
 import { emitSfx } from '@/lib/audio-events'
 
 /* ─── Boss sprite grids by category ─── */
@@ -65,8 +66,6 @@ const SPRITE_COLORS: Record<string, [string, string]> = {
 function BossSprite({ category, entered }: { category: string; entered: boolean }) {
   const grid = SPRITES[category] ?? SPRITES.default
   const [body, eye] = SPRITE_COLORS[category] ?? SPRITE_COLORS.default
-  const glow = `0 0 8px ${body}99, 0 0 18px ${body}44`
-  const eyeGlow = `0 0 6px ${eye}cc`
 
   return (
     <div style={{
@@ -80,7 +79,6 @@ function BossSprite({ category, entered }: { category: string; entered: boolean 
             <div key={c} style={{
               width: 10, height: 10,
               backgroundColor: cell === 1 ? body : cell === 2 ? eye : 'transparent',
-              boxShadow: cell === 1 ? glow : cell === 2 ? eyeGlow : 'none',
             }} />
           ))}
         </div>
@@ -98,11 +96,10 @@ function HpBar({ value, max, color }: { value: number; max: number; color: strin
   }, [value])
   const pct = (displayed / max) * 100
   return (
-    <div style={{ width: '100%', height: 12, backgroundColor: '#111', position: 'relative', border: `1px solid ${color}44` }}>
+    <div style={{ width: '100%', height: 14, backgroundColor: '#05050b', position: 'relative', border: `2px solid ${color}` }}>
       <div style={{
         height: '100%', width: `${pct}%`,
         backgroundColor: color,
-        boxShadow: `0 0 8px ${color}88`,
         transition: 'width 1.2s ease',
       }} />
     </div>
@@ -138,7 +135,6 @@ function LetterReveal({ text, color }: { text: string; color: string }) {
       {text.split('').map((ch, i) => (
         <span key={i} style={{
           color, fontSize: 'clamp(10px, 2.5vw, 16px)', letterSpacing: 1,
-          textShadow: `0 0 10px ${color}`,
           animation: `letterPop 0.05s ease ${i * 60}ms both`,
           display: 'inline-block',
         }}>{ch === ' ' ? '\u00a0' : ch}</span>
@@ -151,8 +147,8 @@ export default function BossPage() {
   const router = useRouter()
   const { currentBoss, currentBossIndex, totalBosses } = useGame()
   const [phase, setPhase] = useState<'entering' | 'name' | 'hp' | 'monologue' | 'ready'>('entering')
-  const [btnHover, setBtnHover] = useState(false)
   const revealSfxPlayedRef = useRef(false)
+  const particlesRef = useRef<ParticlesHandle>(null)
 
   useEffect(() => {
     if (!currentBoss) return
@@ -172,10 +168,28 @@ export default function BossPage() {
     }
   }, [])
 
-  if (!currentBoss) return null
-
-  const category = currentBoss.sprite_category ?? 'default'
+  const category = currentBoss?.sprite_category ?? 'default'
   const [bodyColor] = SPRITE_COLORS[category] ?? SPRITE_COLORS.default
+
+  useEffect(() => {
+    const emitSparks = () => {
+      particlesRef.current?.burst(window.innerWidth / 2, window.innerHeight / 2, {
+        color: [bodyColor, '#ffffff', '#88ccff'],
+        count: 16,
+        speed: 4,
+        spread: Math.PI * 2,
+        gravity: 0,
+        size: 3,
+        life: 40,
+        shape: 'square',
+      })
+    }
+    emitSparks()
+    const interval = window.setInterval(emitSparks, 900)
+    return () => window.clearInterval(interval)
+  }, [bodyColor])
+
+  if (!currentBoss) return null
 
   return (
     <>
@@ -202,9 +216,21 @@ export default function BossPage() {
           0%   { background-position: 0 0; }
           100% { background-position: 0 4px; }
         }
-        @keyframes pulseGlow {
-          0%,100% { box-shadow: 0 0 12px ${bodyColor}44; }
-          50%      { box-shadow: 0 0 30px ${bodyColor}aa; }
+        .pixel-corners {
+          clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+        }
+        .retro-hover-cyan:hover:not(:disabled) {
+          background-color: #00f0ff1a !important;
+          border-color: #00f0ff !important;
+        }
+        .retro-hover-gold:hover:not(:disabled) {
+          background-color: ${bodyColor}22 !important;
+          border-color: ${bodyColor} !important;
+          color: #000 !important;
+        }
+        .retro-hover-purple:hover:not(:disabled) {
+          background-color: #2a1535 !important;
+          border-color: #8A2BE2 !important;
         }
       `}</style>
 
@@ -216,6 +242,7 @@ export default function BossPage() {
         fontFamily: 'var(--font-pixel), monospace',
       }}>
         <Starfield />
+        <Particles ref={particlesRef} zIndex={1} />
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
           backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px)',
@@ -229,88 +256,113 @@ export default function BossPage() {
         {/* Progress indicator */}
         <div style={{
           position: 'fixed', top: 16, right: 20, zIndex: 10,
-          fontSize: 'clamp(5px, 1.2vw, 7px)', color: '#555', letterSpacing: 2,
+          fontSize: 'clamp(7px, 1.5vw, 10px)', color: '#555', letterSpacing: 2,
         }}>
           BOSS {currentBossIndex + 1} OF {totalBosses}
         </div>
 
         <div style={{
           position: 'relative', zIndex: 3,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', gap: 20,
-          maxWidth: 500, width: '100%', padding: '20px 24px',
+          width: '100%', maxWidth: 760, padding: '24px',
+          display: 'flex', flexDirection: 'column', gap: 20,
         }}>
-
-          {/* WARNING header */}
-          <div style={{ fontSize: 'clamp(8px, 2vw, 12px)', color: '#FF0040', letterSpacing: 6, textShadow: '0 0 10px #FF004088', animation: 'fadeIn 0.4s ease' }}>
-            !! WARNING !!
-          </div>
-
-
-          {/* Name */}
-          {(phase === 'name' || phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
-            <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease' }}>
-              <div style={{ fontSize: 'clamp(5px, 1.2vw, 7px)', color: '#555', letterSpacing: 3, marginBottom: 8 }}>ENEMY APPROACHING</div>
-              <LetterReveal text={currentBoss.name} color={bodyColor} />
-            </div>
-          )}
-
-          {/* HP bar */}
-          {(phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
-            <div style={{ width: '100%', animation: 'fadeIn 0.5s ease' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: '#FF0040', letterSpacing: 2 }}>HP</span>
-                <span style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: '#555' }}>{currentBoss.max_hp}/{currentBoss.max_hp}</span>
+          <div className="pixel-corners" style={{
+            border: `2px solid ${bodyColor}`,
+            backgroundColor: '#07080f',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(14px, 4vw, 26px)', letterSpacing: 4, color: '#FF0040' }}>
+                  !! WARNING !!
+                </span>
+                <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(8px, 2vw, 14px)', letterSpacing: 3, color: '#aaa' }}>
+                  BOSS APPROACHING
+                </span>
               </div>
-              <HpBar value={currentBoss.max_hp} max={currentBoss.max_hp} color="#FF0040" />
+              <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(7px, 1.4vw, 10px)', letterSpacing: 2, color: '#ccc' }}>
+                {currentBossIndex + 1} / {totalBosses}
+              </span>
             </div>
-          )}
 
-          {/* Opening monologue */}
-          {(phase === 'monologue' || phase === 'ready') && (
-            <div style={{
-              width: '100%', padding: '14px 16px',
-              border: `1px solid ${bodyColor}44`,
-              backgroundColor: '#0a0a0a',
-              animation: 'fadeIn 0.5s ease',
-              position: 'relative',
+            <div className="pixel-corners" style={{
+              border: `2px solid ${bodyColor}`,
+              backgroundColor: '#05050b',
+              padding: '22px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 18,
             }}>
-              <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: bodyColor, letterSpacing: 2, marginBottom: 8, opacity: 0.6 }}>
-                {currentBoss.name.toUpperCase()} SAYS:
-              </div>
-              <p style={{ margin: 0, fontSize: 'clamp(6px, 1.5vw, 9px)', color: '#ccc', lineHeight: 2.2 }}>
-                {phase === 'monologue'
-                  ? <Typewriter text={currentBoss.opening_monologue} onDone={() => setPhase('ready')} />
-                  : currentBoss.opening_monologue
-                }
-              </p>
-            </div>
-          )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {(phase !== 'entering') && (
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(8px, 1.7vw, 12px)', letterSpacing: 2, color: '#999', marginBottom: 10 }}>
+                      ENEMY APPROACHING
+                    </div>
+                    <LetterReveal text={currentBoss.name} color={bodyColor} />
+                  </div>
+                )}
 
-          {/* CTA — appears as soon as the HP bar shows, before the monologue text */}
-          {(phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
-            <button
-              style={{
-                fontFamily: 'var(--font-pixel), monospace',
-                fontSize: 'clamp(7px, 1.8vw, 10px)', letterSpacing: 3,
-                color: btnHover ? '#000' : bodyColor,
-                backgroundColor: btnHover ? bodyColor : 'transparent',
-                border: `2px solid ${bodyColor}`,
-                padding: '14px 32px', cursor: 'pointer',
-                textShadow: btnHover ? 'none' : `0 0 8px ${bodyColor}`,
-                transition: 'all 0.12s ease',
-                animation: 'fadeIn 0.4s ease, pulseGlow 1.6s ease-in-out infinite',
-              }}
-              onMouseEnter={() => setBtnHover(true)}
-              onMouseLeave={() => setBtnHover(false)}
-              onClick={() => {
-                emitSfx({ name: 'riser.wav', volume: 0.105 })
-                window.setTimeout(() => router.push('/battle'), 110)
-              }}
-            >
-              ► BATTLE ◄
-            </button>
-          )}
+                {(phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(7px, 1.3vw, 10px)', letterSpacing: 2, color: '#ccc' }}>
+                      <span>HP</span>
+                      <span>{currentBoss.max_hp}/{currentBoss.max_hp}</span>
+                    </div>
+                    <HpBar value={currentBoss.max_hp} max={currentBoss.max_hp} color={bodyColor} />
+                  </div>
+                )}
+
+                {(phase === 'monologue' || phase === 'ready') && (
+                  <div className="pixel-corners" style={{
+                    border: `2px solid ${bodyColor}`,
+                    backgroundColor: '#03040b',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                  }}>
+                    <span style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(9px, 1.9vw, 14px)', letterSpacing: 2, color: bodyColor }}>
+                      DIALOGUE
+                    </span>
+                    <p style={{ margin: 0, fontFamily: 'var(--font-mono), monospace', fontSize: 'clamp(10px, 1.8vw, 14px)', color: '#ccc', lineHeight: 1.75 }}>
+                      {phase === 'monologue'
+                        ? <Typewriter text={currentBoss.opening_monologue} onDone={() => setPhase('ready')} />
+                        : currentBoss.opening_monologue
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {(phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
+              <button
+                className="pixel-corners"
+                onClick={() => {
+                  emitSfx({ name: 'riser.wav', volume: 0.105 })
+                  window.setTimeout(() => router.push('/battle'), 110)
+                }}
+                style={{
+                  width: '100%',
+                  padding: '16px 0',
+                  backgroundColor: 'transparent',
+                  border: `2px solid ${bodyColor}`,
+                  color: bodyColor,
+                  fontFamily: 'var(--font-pixel), monospace',
+                  fontSize: 'clamp(8px, 1.7vw, 11px)',
+                  letterSpacing: 3,
+                  cursor: 'pointer',
+                }}
+              >
+                ► BATTLE ◄
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </>
