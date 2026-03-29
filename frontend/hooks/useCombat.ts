@@ -9,6 +9,11 @@ export interface CombatChoice {
   text: string
 }
 
+export interface WrongTaunt {
+  answer: string
+  taunt: string
+}
+
 export interface CombatQuestion {
   id: string
   difficulty: number        // 0–10
@@ -18,6 +23,7 @@ export interface CombatQuestion {
   correctAnswerId: string
   concept: string
   explanation: string
+  wrong_taunts: WrongTaunt[]
 }
 
 export interface InventoryItem {
