@@ -91,6 +91,31 @@ function SkullSprite() {
   )
 }
 
+/* ─── Pixel explosion effect for defeat visuals ─── */
+function PixelExplosion() {
+  return (
+    <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto' }}>
+      {Array.from({ length: 20 }, (_, i) => {
+        const angle = (i / 20) * Math.PI * 2
+        const dist  = 30 + Math.random() * 24
+        return (
+          <div key={i} style={{
+            position: 'absolute',
+            left: '50%', top: '50%',
+            width: 4 + Math.random() * 6,
+            height: 4 + Math.random() * 6,
+            backgroundColor: i % 2 === 0 ? C.redHi : C.gold,
+            boxShadow: `0 0 4px ${C.redHi}88`,
+            animation: `explode${i % 4} 0.6s ease-out forwards`,
+            '--dx': `${Math.cos(angle) * dist}px`,
+            '--dy': `${Math.sin(angle) * dist}px`,
+          } as React.CSSProperties} />
+        )
+      })}
+    </div>
+  )
+}
+
 /* ─── Animated score counter ─── */
 function ScoreCounter({ target }: { target: number }) {
   const [display, setDisplay] = useState(0)
@@ -335,6 +360,21 @@ function QuestionCard({ result, idx }: {
   )
 }
 
+/* ─── Tab button (shared) ─── */
+function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      fontFamily: 'var(--font-pixel), monospace',
+      fontSize: 'clamp(5px, 1.3vw, 8px)', letterSpacing: 2,
+      color: active ? C.bg : C.textDim,
+      backgroundColor: active ? C.gold : 'transparent',
+      border: `1px solid ${active ? C.gold : C.border}`,
+      padding: '8px 16px', cursor: 'pointer',
+      transition: 'all 0.15s', flex: 1,
+    }}>{label}</button>
+  )
+}
+
 /* ─── Main content ─── */
 function ResultContent() {
   const router  = useRouter()
@@ -343,26 +383,25 @@ function ResultContent() {
   const isVictory = outcome === 'victory'
 
   const {
-    currentBoss, currentBossIndex, score, turn,
+    currentBoss, currentBossIndex, score,
     lastBossResults, weakSpots, totalBosses,
     playerHP, resetGame,
   } = useGame()
 
   const [btnHover, setBtnHover] = useState(false)
+  const [tab, setTab] = useState<'main' | 'review'>('main')
 
   const correct   = lastBossResults.filter(r => r.correct).length
   const wrong     = lastBossResults.filter(r => !r.correct).length
   const accuracy  = lastBossResults.length > 0 ? Math.round((correct / lastBossResults.length) * 100) : 0
 
-  const allCorrectConcepts  = lastBossResults.filter(r => r.correct).map(r => r.conceptName)
-  const allWrongConcepts    = lastBossResults.filter(r => !r.correct).map(r => r.conceptName)
-  const uniqueWrong         = [...new Set(allWrongConcepts)]
-  const uniqueMastered      = [...new Set(allCorrectConcepts.filter(c => !allWrongConcepts.includes(c)))]
+  const allCorrectConcepts = lastBossResults.filter(r => r.correct).map(r => r.conceptName)
+  const allWrongConcepts   = lastBossResults.filter(r => !r.correct).map(r => r.conceptName)
+  const uniqueWrong        = [...new Set(allWrongConcepts)]
+  const uniqueMastered     = [...new Set(allCorrectConcepts.filter(c => !allWrongConcepts.includes(c)))]
 
   const bossesDefeated = isVictory ? totalBosses : currentBossIndex
-
   const tryAgain = () => { resetGame(); router.push('/') }
-
   const accentColor = isVictory ? C.gold : C.redHi
 
   return (
@@ -377,6 +416,14 @@ function ResultContent() {
           0%,100% { transform: translateY(0px); }
           50%      { transform: translateY(-6px) scale(1.03); }
         }
+        @keyframes defeatFlash {
+          0%,100% { text-shadow: 0 0 10px rgba(204,85,85,0.8), 0 0 24px rgba(255,102,102,0.55); }
+          50%      { text-shadow: 0 0 20px rgba(255,102,102,1), 0 0 40px rgba(255,136,136,0.7); }
+        }
+        @keyframes explode0 { from{transform:translate(-50%,-50%) scale(1); opacity:1} to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0); opacity:0} }
+        @keyframes explode1 { from{transform:translate(-50%,-50%) scale(1); opacity:1} to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0); opacity:0} }
+        @keyframes explode2 { from{transform:translate(-50%,-50%) scale(1); opacity:1} to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0); opacity:0} }
+        @keyframes explode3 { from{transform:translate(-50%,-50%) scale(1); opacity:1} to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0); opacity:0} }
         @keyframes titleReveal {
           0%   { opacity: 0; transform: scale(0.6) translateY(16px); }
           65%  { transform: scale(1.05) translateY(0); }
@@ -404,6 +451,7 @@ function ResultContent() {
           0%   { background-position: 0 0; }
           100% { background-position: 0 4px; }
         }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: ${C.border}; }
         ::-webkit-scrollbar-track { background: ${C.bg}; }
@@ -431,55 +479,39 @@ function ResultContent() {
         <div style={{
           position: 'relative', zIndex: 2,
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          maxWidth: 620, width: '100%', margin: '0 auto',
-          padding: '32px 16px 64px', gap: 20,
+          maxWidth: 560, width: '100%', margin: '0 auto',
+          padding: '20px 16px 40px', gap: 16,
         }}>
 
           {/* ── Sprite + Title ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 10 }}>
             {isVictory ? <TrophySprite /> : <SkullSprite />}
 
             <div style={{ textAlign: 'center' }}>
               {isVictory ? (
                 <>
-                  <div style={{
-                    fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim,
-                    letterSpacing: 4, marginBottom: 10,
-                  }}>
-                    BOSS RUSH COMPLETE · {bossesDefeated} STAGE{bossesDefeated !== 1 ? 'S' : ''} CLEARED
-                  </div>
+
                   <h1 style={{
-                    margin: 0, fontSize: 'clamp(20px, 5vw, 36px)',
-                    color: C.gold, letterSpacing: 6,
+                    margin: 0, fontSize: 'clamp(14px, 4vw, 24px)', color: C.gold, letterSpacing: 4,
                     animation: 'titleReveal 0.65s cubic-bezier(0.175,0.885,0.32,1.275) both, titlePulse 3s ease-in-out 0.65s infinite',
                   }}>VICTORY!</h1>
-                  <div style={{
-                    marginTop: 10, fontSize: 'clamp(4px, 0.9vw, 6px)',
-                    color: C.greenHi, letterSpacing: 4,
-                    animation: 'floatSprite 2.2s ease-in-out infinite',
-                  }}>
+                  <div style={{ marginTop: 10, fontSize: 'clamp(4px, 0.9vw, 6px)', color: C.greenHi, letterSpacing: 4, animation: 'floatSprite 2.2s ease-in-out infinite' }}>
                     ★ THE GAUNTLET IS YOURS ★
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{
-                    fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim,
-                    letterSpacing: 4, marginBottom: 10,
-                  }}>
-                    {currentBoss
-                      ? `FALLEN TO ${currentBoss.name.toUpperCase()}`
-                      : 'THE GAUNTLET CLAIMS ANOTHER'}
+                  <div style={{ fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim, letterSpacing: 4, marginBottom: 10 }}>
+                    {currentBoss ? `FALLEN TO ${currentBoss.name.toUpperCase()}` : 'THE GAUNTLET CLAIMS ANOTHER'}
                   </div>
                   <h1 style={{
-                    margin: 0, fontSize: 'clamp(20px, 5vw, 36px)',
-                    color: C.redHi, letterSpacing: 6,
-                    animation: 'titleReveal 0.55s cubic-bezier(0.175,0.885,0.32,1.275) both, titlePulse 2s ease-in-out 0.55s infinite',
+                    margin: 0, fontSize: 'clamp(14px, 4vw, 24px)', color: C.redHi, letterSpacing: 4,
+                    animation: 'titleReveal 0.55s cubic-bezier(0.175,0.885,0.32,1.275) both, defeatFlash 1.8s ease-in-out 0.55s infinite',
                   }}>GAME OVER</h1>
-                  <div style={{
-                    marginTop: 10, fontSize: 'clamp(4px, 0.9vw, 6px)',
-                    color: C.textDim, letterSpacing: 3,
-                  }}>
+                  <div style={{ marginTop: 14 }}>
+                    <PixelExplosion />
+                  </div>
+                  <div style={{ marginTop: -50, fontSize: 'clamp(4px, 0.9vw, 6px)', color: C.textDim, letterSpacing: 3 }}>
                     {bossesDefeated > 0
                       ? `YOU CLEARED ${bossesDefeated} STAGE${bossesDefeated !== 1 ? 'S' : ''}`
                       : 'STUDY HARDER AND TRY AGAIN'}
@@ -490,140 +522,157 @@ function ResultContent() {
           </div>
 
           {/* Divider */}
-          <div style={{
-            width: '100%', height: 1,
-            background: `linear-gradient(90deg, transparent, ${accentColor}66, transparent)`,
-          }} />
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${accentColor}66, transparent)` }} />
 
-          {/* ── Score ── */}
-          <div style={{
-            textAlign: 'center',
-            animation: 'scoreReveal 0.5s ease 0.4s both',
-          }}>
-            <div style={{
-              fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim,
-              letterSpacing: 3, marginBottom: 6,
-            }}>FINAL SCORE</div>
-            <div style={{
-              fontSize: 'clamp(26px, 6.5vw, 48px)',
-              color: C.gold, letterSpacing: 4,
-            }}>
-              <ScoreCounter target={score} />
+          {/* ── Score quick stats ── */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 'clamp(5px, 1.2vw, 7px)', animation: 'scoreReveal 0.5s ease 0.4s both' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>SCORE</div>
+              <div style={{ color: C.gold }}><ScoreCounter target={score} /></div>
             </div>
-            <div style={{ fontSize: 'clamp(3px, 0.7vw, 5px)', color: C.textDim, letterSpacing: 3, marginTop: 2 }}>
-              PTS
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>ACCURACY</div>
+              <div style={{ color: accuracy >= 70 ? C.greenHi : C.redHi }}>{accuracy}%</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>QUESTIONS</div>
+              <div style={{ color: C.gold }}>{correct}/{lastBossResults.length}</div>
             </div>
           </div>
 
-          {/* ── Battle Stats ── */}
-          <div style={{
-            width: '100%', position: 'relative',
-            border: `1px solid ${C.border}`,
-            backgroundColor: C.panel, padding: '14px 16px',
-            animation: 'fadeSlideUp 0.4s ease 0.5s both',
-          }}>
-            <PixelCorner pos="tl" color={C.borderHi} />
-            <PixelCorner pos="br" color={C.borderHi} />
-            <div style={{
-              fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim,
-              letterSpacing: 2, marginBottom: 10,
-            }}>── BATTLE STATS ──</div>
-            <StatRow label="ACCURACY"       value={`${accuracy}%`}                                        color={accuracy >= 70 ? C.greenHi : accuracy >= 40 ? C.gold : C.redHi} delay={0.55} />
-            <StatRow label="TOTAL ROUNDS"   value={String(lastBossResults.length)}                        color={C.accent}   delay={0.60} />
-            <StatRow label="CORRECT"        value={`${correct} / ${lastBossResults.length}`}              color={C.greenHi}  delay={0.65} />
-            <StatRow label="MISSED"         value={`${wrong} / ${lastBossResults.length}`}                color={C.redHi}    delay={0.70} />
-            <StatRow label="STAGES CLEARED" value={`${bossesDefeated} / ${totalBosses}`}                 color={C.gold}     delay={0.75} />
-            <StatRow label="HP REMAINING"   value={`${Math.max(0, playerHP)} / ${PLAYER_MAX_HP_VALUE}`}  color={playerHP < PLAYER_MAX_HP_VALUE * 0.3 ? C.redHi : C.accent} delay={0.80} />
+          {/* ── Tabs ── */}
+          <div style={{ display: 'flex', gap: 4, width: '100%', animation: 'fadeSlideUp 0.4s ease 0.5s both' }}>
+            <Tab label={isVictory ? 'VICTORY' : 'DEFEAT'}         active={tab === 'main'}   onClick={() => setTab('main')} />
+            <Tab label={`REVIEW (${lastBossResults.length})`}      active={tab === 'review'} onClick={() => setTab('review')} />
           </div>
 
-          {/* ── Concept mastery ── */}
-          {(uniqueMastered.length > 0 || uniqueWrong.length > 0) && (
-            <div style={{
-              width: '100%', position: 'relative',
-              border: `1px solid ${C.border}`,
-              backgroundColor: C.panel, padding: '14px 16px',
-              animation: 'fadeSlideUp 0.4s ease 0.85s both',
-            }}>
-              <PixelCorner pos="tl" color={C.borderHi} />
-              <PixelCorner pos="br" color={C.borderHi} />
+          {/* ── Main tab ── */}
+          {tab === 'main' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', animation: 'fadeIn 0.3s ease' }}>
 
-              {uniqueMastered.length > 0 && (
-                <div style={{ marginBottom: uniqueWrong.length > 0 ? 12 : 0 }}>
-                  <div style={{
-                    fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.greenHi,
-                    letterSpacing: 2, marginBottom: 8,
-                  }}>── MASTERED ──</div>
-                  <div>{uniqueMastered.map((c, i) => <ConceptChip key={i} name={c} correct={true} />)}</div>
+              {/* Battle stats */}
+              <div style={{ position: 'relative', border: `1px solid ${C.border}`, backgroundColor: C.panel, padding: '14px 16px' }}>
+                <PixelCorner pos="tl" color={C.borderHi} />
+                <PixelCorner pos="br" color={C.borderHi} />
+                <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>── BATTLE STATS ──</div>
+                <StatRow label="ACCURACY"       value={`${accuracy}%`}                                        color={accuracy >= 70 ? C.greenHi : accuracy >= 40 ? C.gold : C.redHi} delay={0} />
+                <StatRow label="TOTAL ROUNDS"   value={String(lastBossResults.length)}                        color={C.accent}   delay={0.05} />
+                <StatRow label="CORRECT"        value={`${correct} / ${lastBossResults.length}`}              color={C.greenHi}  delay={0.10} />
+                <StatRow label="MISSED"         value={`${wrong} / ${lastBossResults.length}`}                color={C.redHi}    delay={0.15} />
+                <StatRow label="STAGES CLEARED" value={`${bossesDefeated} / ${totalBosses}`}                 color={C.gold}     delay={0.20} />
+                <StatRow label="HP REMAINING"   value={`${Math.max(0, playerHP)} / ${PLAYER_MAX_HP_VALUE}`}  color={playerHP < PLAYER_MAX_HP_VALUE * 0.3 ? C.redHi : C.accent} delay={0.25} />
+              </div>
+
+              {/* Progress tracker */}
+              <div style={{ position: 'relative', border: `1px solid ${C.border}`, backgroundColor: C.panel, padding: '14px 16px', textAlign: 'center' }}>
+                <PixelCorner pos="tl" color={C.borderHi} />
+                <PixelCorner pos="br" color={C.borderHi} />
+                <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>BOSS RUSH PROGRESS</div>
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                  {Array.from({ length: totalBosses }, (_, i) => (
+                    <div key={i} style={{
+                      width: 20, height: 20,
+                      backgroundColor: i < bossesDefeated ? C.green : i === bossesDefeated && !isVictory ? C.red : C.panel,
+                      boxShadow: i < bossesDefeated ? `0 0 4px ${C.green}66` : 'none',
+                      border: i === bossesDefeated && !isVictory ? `2px solid ${C.redHi}` : `1px solid ${C.border}`,
+                      transition: 'all 0.3s',
+                    }} />
+                  ))}
+                </div>
+                <div style={{ marginTop: 8, fontSize: 'clamp(4px, 1vw, 6px)', color: isVictory ? C.greenHi : C.textDim, letterSpacing: 2 }}>
+                  {bossesDefeated} / {totalBosses} BOSSES DEFEATED
+                </div>
+              </div>
+
+              {/* Concept mastery */}
+              {(uniqueMastered.length > 0 || uniqueWrong.length > 0) && (
+                <div style={{ position: 'relative', border: `1px solid ${C.border}`, backgroundColor: C.panel, padding: '14px 16px' }}>
+                  <PixelCorner pos="tl" color={C.borderHi} />
+                  <PixelCorner pos="br" color={C.borderHi} />
+
+                  {uniqueMastered.length > 0 && (
+                    <div style={{ marginBottom: uniqueWrong.length > 0 ? 12 : 0 }}>
+                      <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.greenHi, letterSpacing: 2, marginBottom: 8 }}>── MASTERED ──</div>
+                      <div>{uniqueMastered.map((c, i) => <ConceptChip key={i} name={c} correct={true} />)}</div>
+                    </div>
+                  )}
+
+                  {uniqueWrong.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.redHi, letterSpacing: 2, marginBottom: 8 }}>
+                        {isVictory ? '── REVISIT THESE ──' : '── STUDY BEFORE NEXT RUN ──'}
+                      </div>
+                      <div>{uniqueWrong.map((c, i) => <ConceptChip key={i} name={c} correct={false} />)}</div>
+                    </div>
+                  )}
+
+                  {weakSpots.length > 0 && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim, lineHeight: 2, letterSpacing: 1 }}>
+                      <span style={{ color: C.gold, letterSpacing: 2 }}>IDENTIFIED WEAK SPOTS: </span>
+                      {weakSpots.join(' · ')}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {uniqueWrong.length > 0 && (
-                <div>
-                  <div style={{
-                    fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.redHi,
-                    letterSpacing: 2, marginBottom: 8,
-                  }}>
-                    {isVictory ? '── REVISIT THESE ──' : '── STUDY BEFORE NEXT RUN ──'}
-                  </div>
-                  <div>{uniqueWrong.map((c, i) => <ConceptChip key={i} name={c} correct={false} />)}</div>
-                </div>
-              )}
-
-              {weakSpots.length > 0 && (
-                <div style={{
-                  marginTop: 10, paddingTop: 10,
-                  borderTop: `1px solid ${C.border}`,
-                  fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim,
-                  lineHeight: 2, letterSpacing: 1,
-                }}>
-                  <span style={{ color: C.gold, letterSpacing: 2 }}>IDENTIFIED WEAK SPOTS: </span>
-                  {weakSpots.join(' · ')}
-                </div>
-              )}
+              <button
+                onMouseEnter={() => setBtnHover(true)}
+                onMouseLeave={() => setBtnHover(false)}
+                onClick={tryAgain}
+                style={{
+                  width: '100%',
+                  fontFamily: 'var(--font-pixel), monospace',
+                  fontSize: 'clamp(7px, 1.5vw, 10px)', letterSpacing: 4,
+                  color: btnHover ? C.bg : C.accent,
+                  backgroundColor: btnHover ? C.accent : 'transparent',
+                  border: `2px solid ${C.accent}`,
+                  padding: '16px', cursor: 'pointer',
+                  transition: 'all 0.12s ease',
+                }}
+              >
+                ► TRY AGAIN ◄
+              </button>
             </div>
           )}
 
-          {/* ── Question-by-question breakdown ── */}
-          {lastBossResults.length > 0 && (
-            <div style={{ width: '100%', animation: 'fadeSlideUp 0.4s ease 0.95s both' }}>
-              <div style={{
-                fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim,
-                letterSpacing: 2, marginBottom: 10,
-              }}>
-                ── ROUND BREAKDOWN ({lastBossResults.length} ROUNDS) ──
+          {/* ── Review tab ── */}
+          {tab === 'review' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, marginBottom: 4 }}>
+                TAP A CARD TO SEE THE IN-DEPTH EXPLANATION
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {lastBossResults.map((r, i) => (
-                  <QuestionCard key={i} result={r} idx={i} />
-                ))}
-              </div>
+
+              {lastBossResults.length === 0 ? (
+                <div style={{ textAlign: 'center', fontSize: 'clamp(6px, 1.5vw, 9px)', color: C.textDim, padding: 40 }}>
+                  NO QUESTIONS ON RECORD
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {lastBossResults.map((r, i) => (
+                    <QuestionCard key={i} result={r} idx={i} />
+                  ))}
+                </div>
+              )}
+
+              <button
+                onMouseEnter={() => setBtnHover(true)}
+                onMouseLeave={() => setBtnHover(false)}
+                onClick={tryAgain}
+                style={{
+                  width: '100%', marginTop: 6,
+                  fontFamily: 'var(--font-pixel), monospace',
+                  fontSize: 'clamp(7px, 1.5vw, 10px)', letterSpacing: 4,
+                  color: btnHover ? C.bg : C.accent,
+                  backgroundColor: btnHover ? C.accent : 'transparent',
+                  border: `2px solid ${C.accent}`,
+                  padding: '16px', cursor: 'pointer',
+                  transition: 'all 0.12s ease',
+                }}
+              >
+                ► TRY AGAIN ◄
+              </button>
             </div>
           )}
-
-          {/* ── Try Again ── */}
-          <div style={{
-            width: '100%', marginTop: 6,
-            animation: 'fadeSlideUp 0.4s ease 1.05s both',
-          }}>
-            <button
-              onMouseEnter={() => setBtnHover(true)}
-              onMouseLeave={() => setBtnHover(false)}
-              onClick={tryAgain}
-              style={{
-                width: '100%',
-                fontFamily: 'var(--font-pixel), monospace',
-                fontSize: 'clamp(7px, 1.5vw, 10px)', letterSpacing: 4,
-                color: btnHover ? C.bg : C.accent,
-                backgroundColor: btnHover ? C.accent : 'transparent',
-                border: `2px solid ${C.accent}`,
-                padding: '16px',
-                cursor: 'pointer',
-                transition: 'all 0.12s ease',
-              }}
-            >
-              ► TRY AGAIN ◄
-            </button>
-          </div>
 
         </div>
       </div>

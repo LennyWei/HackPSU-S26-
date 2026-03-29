@@ -393,8 +393,8 @@ function BattleUI() {
                   '/images/player/idle-3.png',
                   '/images/player/idle-4.png',
                 ]}
-                width={256*}
-                height={256/4* }
+                width={256}
+                height={64}
                 frameRate={100}
               />
             </div>
