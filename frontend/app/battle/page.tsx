@@ -283,22 +283,48 @@ function buildMockFrqQuestion(game: ReturnType<typeof useGame>, index: number): 
 
 // ─── Visual components ────────────────────────────────────────────────────────
 
-function HpBar({ value, max, color }: { value: number; max: number; color: string }) {
+function HpBar({ value, max, color, height = 7, segments = false }: {
+  value: number; max: number; color: string; height?: number; segments?: boolean
+}) {
   const pct = Math.max(0, (value / max) * 100)
   const low = pct < 30
+
+  // dynamic color: cyan/green → yellow → red as HP drops
+  const barColor = low
+    ? '#FF0040'
+    : pct < 60
+      ? '#FFD700'
+      : color
+
   return (
-    <div>
-      <div style={{ height: 7, backgroundColor: '#050505', border: `1px solid ${color}33`, overflow: 'hidden' }}>
+    <div style={{ position: 'relative' }}>
+      <div style={{
+        height, backgroundColor: '#050505',
+        border: `1px solid ${barColor}33`, overflow: 'hidden', position: 'relative',
+      }}>
+        {/* Main fill */}
         <div style={{
-          height: '100%', width: `${pct}%`, backgroundColor: color,
-          boxShadow: `0 0 ${low ? 12 : 5}px ${color}`,
-          transition: 'width 0.4s ease',
+          height: '100%', width: `${pct}%`, backgroundColor: barColor,
+          boxShadow: `0 0 ${low ? 14 : 6}px ${barColor}99`,
+          transition: 'width 0.4s ease, background-color 0.6s ease',
           animation: low ? 'hpPulse 0.5s ease-in-out infinite' : 'none',
         }} />
+        {/* Segment dividers */}
+        {segments && Array.from({ length: 9 }, (_, i) => (
+          <div key={i} style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `${(i + 1) * 10}%`,
+            width: 1, backgroundColor: '#00000055',
+            pointerEvents: 'none',
+          }} />
+        ))}
       </div>
-      <div style={{ textAlign: 'right', marginTop: 2 }}>
-        <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#444', fontFamily: 'var(--font-pixel), monospace' }}>
-          {Math.max(0, value)}<span style={{ color: '#222' }}>/{max}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+        <span style={{ fontSize: 'clamp(4px, 0.7vw, 6px)', color: barColor, fontFamily: 'var(--font-pixel), monospace', opacity: 0.7 }}>
+          {Math.max(0, value)}
+        </span>
+        <span style={{ fontSize: 'clamp(4px, 0.7vw, 6px)', color: '#333', fontFamily: 'var(--font-pixel), monospace' }}>
+          {max}
         </span>
       </div>
     </div>
@@ -832,6 +858,7 @@ function BattleUI() {
         @keyframes choicePulse { 0%,100%{box-shadow:0 0 0 transparent} 50%{box-shadow:0 0 10px #00f0ff44} }
         @keyframes timerPulse  { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes slotPulse   { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        @keyframes timerBgPulse { 0%,100%{background-color:rgba(255,0,40,0.02)} 50%{background-color:rgba(255,0,40,0.07)} }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: #FF004033; }
       `}</style>
@@ -862,16 +889,29 @@ function BattleUI() {
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', background: 'linear-gradient(to bottom, transparent, #0a0015aa)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: '28%', left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #6633ff33 25%, #9966ff55 50%, #6633ff33 75%, transparent)' }} />
 
-          {/* Boss HP */}
-          <div style={{ position: 'absolute', top: 12, left: 14, backgroundColor: '#060008', border: '1px solid #FF004033', padding: '9px 13px', width: 200, boxShadow: '0 0 24px #FF00401a, inset 0 0 12px #0a000a', zIndex: 5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF3333', letterSpacing: 2, textShadow: '0 0 8px #FF333388', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{game.currentBoss.name.toUpperCase()}</span>
-              {bossHPPct < 30 && <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#FFD700', animation: 'blink 0.55s infinite', letterSpacing: 1, flexShrink: 0 }}>LOW HP</span>}
+          {/* ── Player HP — top left (Elden Ring style) ── */}
+          <div style={{
+            position: 'absolute', top: 14, left: 14, zIndex: 5,
+            width: 220,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+              <span style={{
+                fontSize: 'clamp(8px, 1vw, 11px)', color: '#00f0ff',
+                letterSpacing: 2, textShadow: '0 0 8px #00f0ff66',
+                fontFamily: 'var(--font-pixel), monospace',
+              }}>PLAYER</span>
+              {playerHPPct < 30 && (
+                <span style={{
+                  fontSize: 'clamp(7px, 0.8vw, 9px)', color: '#FF0040',
+                  animation: 'blink 0.55s infinite', letterSpacing: 1,
+                  fontFamily: 'var(--font-pixel), monospace',
+                }}>DANGER</span>
+              )}
             </div>
-            <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" />
+            <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" height={14} segments />
           </div>
 
-          {/* Score */}
+          {/* Score — top right */}
           <div style={{ position: 'absolute', top: 12, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px #FFD70055' }}>{game.score.toLocaleString()} <span style={{ color: '#443300' }}>PTS</span></div>
             <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#555', letterSpacing: 2 }}>BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#2a2a2a' }}>/{game.totalBosses}</span></div>
@@ -965,18 +1005,42 @@ function BattleUI() {
             })}
           </div>
 
-          {/* Player HP */}
-          <div style={{ position: 'absolute', bottom: 10, right: 14, backgroundColor: '#000d10', border: '1px solid #00f0ff28', padding: '9px 13px', width: 200, boxShadow: '0 0 24px #00f0ff18, inset 0 0 12px #000d10', zIndex: 5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#00f0ff', letterSpacing: 2, textShadow: '0 0 8px #00f0ff66' }}>PLAYER</span>
-              {playerHPPct < 30 && <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#FF0040', animation: 'blink 0.55s infinite', letterSpacing: 1 }}>DANGER</span>}
+          {/* ── Boss HP — bottom center of scene (Elden Ring style) ── */}
+          <div style={{
+            position: 'absolute', bottom: 14, left: '50%',
+            transform: 'translateX(-50%)',
+            width: '55%', zIndex: 6,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+              <span style={{
+                fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#FF3333',
+                letterSpacing: 3, textShadow: '0 0 10px #FF333388',
+                fontFamily: 'var(--font-pixel), monospace',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%',
+              }}>{game.currentBoss.name.toUpperCase()}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {bossHPPct < 30 && (
+                  <span style={{
+                    fontSize: 'clamp(7px, 0.8vw, 9px)', color: '#FFD700',
+                    animation: 'blink 0.55s infinite', letterSpacing: 1,
+                    fontFamily: 'var(--font-pixel), monospace',
+                  }}>ENRAGED</span>
+                )}
+              </div>
             </div>
-            <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" />
+            <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" height={18} segments />
           </div>
         </div>
 
         {/* ═══ BATTLE MENU ═══ */}
-        <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0, borderTop: '1px solid #ffffff14', backgroundColor: '#05050d', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{
+          position: 'relative', zIndex: 2, flex: 1, minHeight: 0,
+          borderTop: '2px solid #00f0ff44',
+          boxShadow: '0 -4px 16px #00f0ff18',
+          backgroundColor: timerLow ? undefined : '#05050d',
+          animation: timerLow ? 'timerBgPulse 0.8s ease-in-out infinite' : 'none',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
 
           {/* Timer bar — hidden during explanation */}
           <div style={{ height: 3, flexShrink: 0, backgroundColor: '#0a0a0a' }}>
