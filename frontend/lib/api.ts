@@ -194,9 +194,8 @@ export async function uploadPDF(pdfBase64: string): Promise<InitGameResponse> {
     }
 
     return { bossRush: data.bossRush, bosses: data.bosses }
-  } catch {
-    // Keep the game playable while backend endpoints are under development.
-    return buildMockInitResponse()
+  } catch (err) {
+    throw err
   }
 }
 

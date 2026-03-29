@@ -11,7 +11,7 @@ import os
 import json
 import io
 import tempfile
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from models import KnowledgeGraph, Boss, Question, AnswerJudgment
 
@@ -44,7 +44,10 @@ def call_1_extract_knowledge(pdf_bytes: bytes) -> KnowledgeGraph:
         tmp_path = tmp.name
 
     try:
-        uploaded = genai.upload_file(tmp_path, mime_type="application/pdf")
+        uploaded = _client.files.upload(
+            file=tmp_path,
+            config={"mime_type": "application/pdf"},
+        )
 
         prompt = """You are an expert educator. Analyze this study material and extract a structured knowledge graph.
 
@@ -68,8 +71,11 @@ Return ONLY valid JSON with no markdown fences:
 
 Extract 3-5 major topics. Each topic must be a distinct, testable area of the material."""
 
-        response = _model.generate_content([uploaded, prompt])
-        uploaded.delete()
+        response = _client.models.generate_content(
+            model=_MODEL,
+            contents=[uploaded, prompt],
+        )
+        _client.files.delete(name=uploaded.name)
         data = _parse_json(response.text)
         return KnowledgeGraph.from_dict(data)
     finally:
