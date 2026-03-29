@@ -17,6 +17,7 @@ import TwinklingStars from '@/components/ui/twinkling-stars'
 import AnimatedSprite from '@/components/ui/animated-sprite'
 import Particles, { ParticlesHandle } from '@/components/ui/particles'
 import { useShake, ShakeStyles } from '@/hooks/useShake'
+import { emitBattleAudioState, emitSfx } from '@/lib/audio-events'
 
 // ─── Player animation frame sets ─────────────────────────────────────────────
 
@@ -639,6 +640,19 @@ function BattleUI() {
     }
   }, [game.currentBossIndex])
 
+  useEffect(() => {
+    emitBattleAudioState({
+      phase: combat.state.phase,
+      hasPendingReward: !!combat.state.pendingReward,
+    })
+  }, [combat.state.phase, combat.state.pendingReward])
+
+  useEffect(() => {
+    return () => {
+      emitBattleAudioState(null)
+    }
+  }, [])
+
 
   // ── Player animation ──
   const [playerFrames, setPlayerFrames] = useState(IDLE_FRAMES)
@@ -669,6 +683,36 @@ function BattleUI() {
     setPlayerFrameKey(k => k + 1)
   }, [])
 
+  const playPlayerAttackSfx = useCallback(() => {
+    const combo = Math.max(0, Math.min(10, combat.state.correctStreak ?? 0))
+    const comboPitch = 0.6 + (combo / 10) * 2
+
+    // Initial dash in: higher-pitched whoosh.
+    emitSfx({ name: 'Whoosh.wav', volume: 0.52, minRate: 1.05, maxRate: 1.2 })
+    // Hit moment.
+    window.setTimeout(() => {
+      emitSfx({ name: 'hit1.wav', volume: 0.52, minRate: 0.8, maxRate: 1.2 })
+      emitSfx({ name: 'crunch.wav', volume: 0.44, minRate: 0.8, maxRate: 1.2 })
+      emitSfx({ name: 'comboSound.mp3', volume: 0.29, minRate: comboPitch, maxRate: comboPitch })
+    }, 360)
+    // Movement back: slightly delayed, lower-pitched whoosh.
+    window.setTimeout(() => {
+      emitSfx({ name: 'Whoosh.wav', volume: 0.46, minRate: 0.7, maxRate: 0.9 })
+    }, 440)
+  }, [combat.state.correctStreak])
+
+  const playBossAttackSfx = useCallback(() => {
+    // Boss attack set has a globally lower pitch profile.
+    emitSfx({ name: 'Whoosh.wav', volume: 0.48, minRate: 0.78, maxRate: 0.98 })
+    window.setTimeout(() => {
+      emitSfx({ name: 'hit1.wav', volume: 0.5, minRate: 0.72, maxRate: 0.92 })
+      emitSfx({ name: 'crunch.wav', volume: 0.42, minRate: 0.68, maxRate: 0.88 })
+    }, 300)
+    window.setTimeout(() => {
+      emitSfx({ name: 'Whoosh.wav', volume: 0.42, minRate: 0.62, maxRate: 0.82 })
+    }, 380)
+  }, [])
+
   const triggerPlayerAttack = useCallback(() => {
     const bossEl = bossRef.current
     const playerEl = playerRef.current
@@ -679,6 +723,8 @@ function BattleUI() {
     const v = attackVariantRef.current
     attackVariantRef.current = v === 1 ? 2 : 1
 
+    playPlayerAttackSfx()
+
     setAnim(DASH_FRAMES, 55)
     setPlayerFlipped(false)
     setPlayerTransStyle('transform 0.35s ease-in')
@@ -686,7 +732,7 @@ function BattleUI() {
     setTimeout(() => setAnim(v === 1 ? ATK1_FRAMES : ATK2_FRAMES, 80), 360)
     setTimeout(() => { setAnim(RETURN_FRAMES, 55); setPlayerFlipped(true); setPlayerTransStyle('transform 0.25s ease-out'); setPlayerX(0) }, 600)
     setTimeout(() => { setAnim(IDLE_FRAMES, 100); setPlayerFlipped(false); setPlayerTransStyle('none') }, 870)
-  }, [setAnim])
+  }, [playPlayerAttackSfx, setAnim])
 
   const addDmg = useCallback((value: number, color: string, side: 'boss' | 'player') => {
     const id = dmgIdRef.current++
@@ -701,6 +747,7 @@ function BattleUI() {
     revealFiredRef.current = true
 
     if (combat.state.isCorrect) {
+      emitSfx({ name: 'zoom beep.wav', volume: 0.5, minRate: 0.95, maxRate: 1.08 })
       // Player dashes to boss
       triggerPlayerAttack()
       // Boss impact at arrival (~360ms)
@@ -714,6 +761,8 @@ function BattleUI() {
       }, 360)
       setTimeout(() => setBossSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     } else {
+      emitSfx({ name: 'wrong.wav', volume: 0.52, minRate: 0.95, maxRate: 1.05 })
+      playBossAttackSfx()
       // Boss swoops at player
       bossAnimRef.current?.triggerAttack(playerRef)
       // Player damage effects at boss arrival (~300ms)
@@ -732,7 +781,7 @@ function BattleUI() {
     const t = setTimeout(() => combat.revealComplete(), 1500)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [combat.state.phase])
+  }, [combat.state.phase, playBossAttackSfx, triggerPlayerAttack])
 
   // ── Timeout damage detection: boss swoops when timer runs out ──
   useEffect(() => {
@@ -741,6 +790,7 @@ function BattleUI() {
     if (prev === null) return
     // HP decreased while question is unanswered = timeout hit
     if (combat.state.playerHP < prev && combat.state.phase === PHASES.ACTIVE && combat.state.selectedAnswer === null) {
+      playBossAttackSfx()
       bossAnimRef.current?.triggerAttack(playerRef)
       const dmg = prev - combat.state.playerHP
       if (dmg > 0) {
@@ -753,7 +803,7 @@ function BattleUI() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [combat.state.playerHP])
+  }, [combat.state.playerHP, playBossAttackSfx])
 
   // ── GAME_OVER: navigate ──
   useEffect(() => {
@@ -1229,6 +1279,10 @@ function BattleUI() {
                                 className={`pixel-corners ${isActive && !isSel ? 'retro-hover-cyan' : ''}`}
                                 onClick={() => combat.selectAnswer(choice.id)}
                                 disabled={isDis}
+                                data-sfx-press="angelichum.wav"
+                                data-sfx-volume="0.5"
+                                data-sfx-min-rate="0.9"
+                                data-sfx-max-rate="1.1"
                                 style={{
                                   flex: 1,
                                   display: 'flex', flexDirection: 'column', alignItems: 'flex-start',

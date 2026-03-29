@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useGame, PLAYER_MAX_HP_VALUE } from '@/context/GameContext'
 import CosmicStarfield from '@/components/ui/cosmic-starfield'
+import { emitSfx } from '@/lib/audio-events'
 
 /* ── Lobby-matching palette ── */
 const C = {
@@ -390,6 +391,10 @@ function ResultContent() {
 
   const [btnHover, setBtnHover] = useState(false)
   const [tab, setTab] = useState<'main' | 'review'>('main')
+
+  useEffect(() => {
+    emitSfx({ name: 'lowboom.wav', volume: 0.62, minRate: 0.95, maxRate: 1.05 })
+  }, [])
 
   const correct   = lastBossResults.filter(r => r.correct).length
   const wrong     = lastBossResults.filter(r => !r.correct).length

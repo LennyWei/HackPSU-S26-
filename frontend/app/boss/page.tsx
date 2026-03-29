@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame } from '@/context/GameContext'
 import Starfield from '@/components/ui/Starfield'
+import { emitSfx } from '@/lib/audio-events'
 
 /* ─── Boss sprite grids by category ─── */
 const SPRITES: Record<string, number[][]> = {
@@ -111,16 +112,22 @@ function HpBar({ value, max, color }: { value: number; max: number; color: strin
 /* ─── Typewriter ─── */
 function Typewriter({ text, speed = 35, onDone }: { text: string; speed?: number; onDone?: () => void }) {
   const [displayed, setDisplayed] = useState('')
+  const onDoneRef = useRef(onDone)
+
+  useEffect(() => {
+    onDoneRef.current = onDone
+  }, [onDone])
+
   useEffect(() => {
     setDisplayed('')
     let i = 0
     const tick = setInterval(() => {
       i++
       setDisplayed(text.slice(0, i))
-      if (i >= text.length) { clearInterval(tick); onDone?.() }
+      if (i >= text.length) { clearInterval(tick); onDoneRef.current?.() }
     }, speed)
     return () => clearInterval(tick)
-  }, [text, speed, onDone])
+  }, [text, speed])
   return <span>{displayed}<span style={{ animation: 'blink 0.7s step-start infinite' }}>▌</span></span>
 }
 
@@ -145,14 +152,25 @@ export default function BossPage() {
   const { currentBoss, currentBossIndex, totalBosses } = useGame()
   const [phase, setPhase] = useState<'entering' | 'name' | 'hp' | 'monologue' | 'ready'>('entering')
   const [btnHover, setBtnHover] = useState(false)
+  const revealSfxPlayedRef = useRef(false)
 
   useEffect(() => {
     if (!currentBoss) return
+    if (!revealSfxPlayedRef.current) {
+      revealSfxPlayedRef.current = true
+      emitSfx({ name: 'bossreveal sound.wav', volume: 0.5 })
+    }
     const t1 = setTimeout(() => setPhase('name'), 900)
     const t2 = setTimeout(() => setPhase('hp'), 1800)
     const t3 = setTimeout(() => setPhase('monologue'), 2600)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [currentBoss, router])
+
+  useEffect(() => {
+    return () => {
+      revealSfxPlayedRef.current = false
+    }
+  }, [])
 
   if (!currentBoss) return null
 
@@ -285,7 +303,10 @@ export default function BossPage() {
               }}
               onMouseEnter={() => setBtnHover(true)}
               onMouseLeave={() => setBtnHover(false)}
-              onClick={() => router.push('/battle')}
+              onClick={() => {
+                emitSfx({ name: 'riser.wav', volume: 0.42 })
+                window.setTimeout(() => router.push('/battle'), 110)
+              }}
             >
               ► BATTLE ◄
             </button>

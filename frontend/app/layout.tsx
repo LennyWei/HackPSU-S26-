@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${pressStart.variable} ${shareTech.variable}`}>
       <body style={{ margin: 0, background: '#050505' }}>
         <GameProvider>
-          {/* <GlobalMusicController /> */}
+          <GlobalMusicController />
           {children}
         </GameProvider>
       </body>

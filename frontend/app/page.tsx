@@ -6,6 +6,7 @@ import { useGame } from '@/context/GameContext'
 import { uploadPDF } from '@/lib/api'
 import PixelButton from '@/components/ui/pixel-hover-effect'
 import CosmicStarfield, { CosmicStarfieldHandle } from '@/components/ui/cosmic-starfield'
+import { emitSfx } from '@/lib/audio-events'
 
 /* palette */
 const C = {
@@ -410,6 +411,10 @@ export default function Home() {
             <PixelButton color={C.accent} onClick={() => {
               cosmicRef.current?.triggerWarp()
               setWarping(true)
+              // Requested "revealsound" cue. Mapped to existing asset name.
+              window.setTimeout(() => {
+                emitSfx({ name: 'bossreveal sound.wav', volume: 0.5, minRate: 0.95, maxRate: 1.05 })
+              }, 500)
               setTimeout(() => setLoading(true), 750)
             }}>
               ► GO TO BATTLE ◄
