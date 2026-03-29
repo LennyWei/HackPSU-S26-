@@ -24,6 +24,7 @@ export interface CombatQuestion {
   concept: string
   explanation: string
   wrong_taunts: WrongTaunt[]
+  question_type?: string    // 'free_response' or undefined/empty for MCQ
 }
 
 export type ItemRarity = 'basic' | 'rare' | 'epic' | 'legendary'
@@ -97,6 +98,7 @@ export interface CombatState {
   inventory: InventoryItem[]
   eliminatedChoices: string[]
   timerDisabled: boolean                // set by time_remover — skips TICK for this question
+  timerFrozen: boolean                  // true while FRQ judging is in-flight — pauses countdown
   _timeoutPending: boolean
   pendingReward:      InventoryItem | null   // item being shown in case-opening reel
   itemSelectReturnTo: Phase | null           // where CLOSE_ITEM_SELECT / USE_ITEM returns to
@@ -367,6 +369,7 @@ function applyItem(state: CombatState, item: InventoryItem): CombatState {
 type Action =
   | { type: 'LOAD_QUESTION'; payload: { question: CombatQuestion } }
   | { type: 'SUBMIT_ANSWER'; payload: { answerId: string } }
+  | { type: 'SUBMIT_FREE_RESPONSE'; payload: { isCorrect: boolean } }
   | { type: 'TIMEOUT' }
   | { type: 'TICK'; payload: { delta: number } }
   | { type: 'REVEAL_COMPLETE' }
@@ -377,6 +380,8 @@ type Action =
   | { type: 'SELECT_ATTACK' }
   | { type: 'CASE_COMPLETE' }
   | { type: 'FORCE_GAME_OVER' }
+  | { type: 'FREEZE_TIMER' }
+  | { type: 'UNFREEZE_TIMER' }
   | { type: 'DEBUG_SET'; payload: Partial<CombatState> }
 
 function reducer(state: CombatState, action: Action): CombatState {
@@ -392,6 +397,7 @@ function reducer(state: CombatState, action: Action): CombatState {
         isCorrect:             null,
         eliminatedChoices:     [],
         timerDisabled:         false,   // reset each question — time_remover only lasts one question
+        timerFrozen:           false,   // reset each question — unfreeze after any previous FRQ judging
         timeRemaining:         scaled.timeMs,
         totalTime:             scaled.timeMs,
         bossDamageOnCorrect:   scaled.bossDamage,
@@ -431,6 +437,32 @@ function reducer(state: CombatState, action: Action): CombatState {
       return next
     }
 
+    case 'SUBMIT_FREE_RESPONSE': {
+      const isCorrect = action.payload.isCorrect
+      let next: CombatState = {
+        ...state,
+        phase:          PHASES.REVEAL,
+        selectedAnswer: '__frq__',
+        isCorrect,
+        totalAttempted: state.totalAttempted + 1,
+      }
+      if (isCorrect) {
+        next.bossHP        = clampHP(next.bossHP - next.bossDamageOnCorrect)
+        next.totalCorrect  = state.totalCorrect + 1
+        next.correctStreak = state.correctStreak + 1
+        const { state: after1 } = consumeEffect(next, 'double_damage')
+        next = after1
+        const { state: after2 } = consumeEffect(next, 'triple_damage')
+        next = after2
+      } else {
+        const { triggered, state: afterShield } = consumeEffect(next, 'shield')
+        next = triggered ? afterShield : { ...next, playerHP: clampHP(next.playerHP - next.playerDamageOnWrong) }
+        const { triggered: streakSaved, state: afterStreak } = consumeEffect(next, 'save_streak')
+        next = streakSaved ? afterStreak : { ...next, correctStreak: 0 }
+      }
+      return next
+    }
+
     case 'TIMEOUT': {
       // does NOT reset streak — timeout is not a wrong answer
       let next: CombatState = { ...state, timeRemaining: state.totalTime, _timeoutPending: false }
@@ -441,7 +473,7 @@ function reducer(state: CombatState, action: Action): CombatState {
 
     case 'TICK': {
       // if time_remover is active, freeze the timer entirely — no countdown, no timeout
-      if (state.timerDisabled) return state
+      if (state.timerDisabled || state.timerFrozen) return state
       const next = { ...state, timeRemaining: Math.max(0, state.timeRemaining - action.payload.delta) }
       return next.timeRemaining === 0 && state.phase === PHASES.ACTIVE
         ? { ...next, _timeoutPending: true }
@@ -483,6 +515,12 @@ function reducer(state: CombatState, action: Action): CombatState {
 
     case 'FORCE_GAME_OVER':
       return { ...state, phase: PHASES.GAME_OVER }
+
+    case 'FREEZE_TIMER':
+      return { ...state, timerFrozen: true }
+
+    case 'UNFREEZE_TIMER':
+      return { ...state, timerFrozen: false }
 
     case 'DEBUG_SET':
       return { ...state, ...action.payload }
@@ -529,6 +567,7 @@ export function useCombat({
     inventory:             initialInventory,
     eliminatedChoices:     [],
     timerDisabled:         false,
+    timerFrozen:           false,
     _timeoutPending:       false,
     pendingReward:         null,
     itemSelectReturnTo:    null,
@@ -576,7 +615,8 @@ export function useCombat({
     else dispatch({ type: 'FORCE_GAME_OVER' })
   }, [state.phase, state.questionIndex, questions])
 
-  const submitAnswer    = useCallback((id: string)             => dispatch({ type: 'SUBMIT_ANSWER',   payload: { answerId: id } }), [])
+  const submitAnswer         = useCallback((id: string)             => dispatch({ type: 'SUBMIT_ANSWER',        payload: { answerId: id } }), [])
+  const submitFreeResponse   = useCallback((isCorrect: boolean)    => dispatch({ type: 'SUBMIT_FREE_RESPONSE', payload: { isCorrect } }), [])
   const revealComplete  = useCallback(()                        => dispatch({ type: 'REVEAL_COMPLETE' }), [])
   const explanationOK   = useCallback(()                        => dispatch({ type: 'EXPLANATION_OK' }), [])
   const useItem         = useCallback((item: InventoryItem)     => dispatch({ type: 'USE_ITEM',        payload: { item } }), [])
@@ -584,6 +624,8 @@ export function useCombat({
   const closeItemSelect = useCallback(()                        => dispatch({ type: 'CLOSE_ITEM_SELECT' }), [])
   const selectAttack    = useCallback(()                        => dispatch({ type: 'SELECT_ATTACK' }), [])
   const caseComplete    = useCallback(()                        => dispatch({ type: 'CASE_COMPLETE' }), [])
+  const pauseTimer      = useCallback(()                        => dispatch({ type: 'FREEZE_TIMER' }), [])
+  const resumeTimer     = useCallback(()                        => dispatch({ type: 'UNFREEZE_TIMER' }), [])
   const debugSet        = useCallback((p: Partial<CombatState>) => {
     if (process.env.NODE_ENV === 'development') dispatch({ type: 'DEBUG_SET', payload: p })
   }, [])
@@ -592,6 +634,7 @@ export function useCombat({
     state,
     PHASES,
     submitAnswer,
+    submitFreeResponse,
     revealComplete,
     explanationOK,
     useItem,
@@ -599,6 +642,8 @@ export function useCombat({
     closeItemSelect,
     selectAttack,
     caseComplete,
+    pauseTimer,
+    resumeTimer,
     debugSet,
   }
 }

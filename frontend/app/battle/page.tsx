@@ -6,7 +6,7 @@ import {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame, PLAYER_MAX_HP_VALUE } from '@/context/GameContext'
-import { streamQuestion, readStream } from '@/lib/api'
+import { streamQuestion, readStream, judgeAnswer } from '@/lib/api'
 import { CombatProvider, useCombatContext } from '@/context/CombatContext'
 import {
   PHASES, CombatQuestion, InventoryItem, ItemRarity,
@@ -171,6 +171,7 @@ function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
     concept:         (raw.concept as string) ?? '',
     explanation:     (raw.explanation as string) ?? `The correct answer is: ${correct}`,
     wrong_taunts:    (raw.wrong_taunts as Array<{ answer: string; taunt: string }>) ?? [],
+    question_type:   (raw.question_type as string) ?? 'mcq',
   }
 }
 
@@ -198,6 +199,25 @@ function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): Com
       { answer: 'C', taunt: `Both equally valid? Not even close, challenger.` },
       { answer: 'D', taunt: `Neither accurate? You clearly haven't read your notes.` },
     ],
+  }
+}
+
+function buildMockFrqQuestion(game: ReturnType<typeof useGame>, index: number): CombatQuestion {
+  const cluster = game.currentCluster
+  const boss    = game.currentBoss
+  const concept = cluster?.concepts[index % Math.max(cluster?.concepts.length ?? 1, 1)]
+  const name    = concept?.name ?? 'a key concept'
+  return {
+    id:              `mock_frq_${index}`,
+    difficulty:      5,
+    question_type:   'free_response',
+    question_text:   `In your own words, explain what ${name} is and why it matters in the context of ${cluster?.clusterName ?? 'this topic'}.`,
+    dialogue:        `${boss?.name ?? 'Boss'}: "Words are your only weapon now. Explain ${name} — or suffer the consequences!"`,
+    choices:         [],
+    correctAnswerId: `${name} is a core concept within ${cluster?.clusterName ?? 'this topic'}. A strong answer describes what it is, how it works, and why it is significant.`,
+    concept:         name,
+    explanation:     `A complete answer covers the definition of ${name}, its mechanism or role, and its importance to ${cluster?.clusterName ?? 'this topic'}.`,
+    wrong_taunts:    [],
   }
 }
 
@@ -379,14 +399,24 @@ export default function BattlePage() {
     async function load() {
       const N = 6
       if (process.env.NEXT_PUBLIC_MOCK === 'true') {
+        const qMode = typeof window !== 'undefined'
+          ? (localStorage.getItem('question_mode') ?? 'mcq')
+          : 'mcq'
         await new Promise(r => setTimeout(r, 700))
-        if (!cancelled) setQuestions(Array.from({ length: N }, (_, i) => buildMockQuestion(game, i)))
+        if (!cancelled) setQuestions(Array.from({ length: N }, (_, i) => {
+          const useFrq = qMode === 'frq' || (qMode === 'both' && Math.random() < 0.5)
+          if (useFrq) return buildMockFrqQuestion(game, i)
+          return buildMockQuestion(game, i)
+        }))
         return
       }
+      const questionMode = typeof window !== 'undefined'
+        ? (localStorage.getItem('question_mode') ?? 'mcq')
+        : 'mcq'
       const qs: CombatQuestion[] = []
       for (let i = 0; i < N; i++) {
         try {
-          const res = await streamQuestion(game)
+          const res = await streamQuestion(game, questionMode)
           let full = ''
           await readStream(res, chunk => { full += chunk })
           qs.push(adaptQuestion(JSON.parse(full) as Record<string, unknown>))
@@ -443,6 +473,11 @@ function BattleUI() {
 
   // ── Item slot hover ──
   const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
+
+  // ── Free-response state ──
+  const [frqText,     setFrqText]     = useState('')
+  const [judgingFrq,  setJudgingFrq]  = useState(false)
+  const [frqResult,   setFrqResult]   = useState<{ explanation: string; bossDialogue: string } | null>(null)
 
   // ── Timeout damage detection ──
   const prevPlayerHPRef = useRef<number | null>(null)
@@ -549,6 +584,12 @@ function BattleUI() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combat.state.phase])
 
+  // ── Reset FRQ state when question changes ──
+  useEffect(() => {
+    setFrqText('')
+    setFrqResult(null)
+  }, [combat.state.questionIndex])
+
   if (!game.currentBoss) return null
 
   const { state } = combat
@@ -576,6 +617,33 @@ function BattleUI() {
     combat.submitAnswer(choiceId)
   }
 
+  const handleFrqSubmit = async () => {
+    if (!isActive || !q || !frqText.trim() || judgingFrq) return
+    setJudgingFrq(true)
+    combat.pauseTimer()  // freeze countdown while Gemini grades the answer
+    try {
+      const result = await judgeAnswer(frqText, q.question_text, q.correctAnswerId, game)
+      setFrqResult({ explanation: result.explanation, bossDialogue: result.boss_dialogue })
+      if (recordedIndexRef.current !== state.questionIndex) {
+        recordedIndexRef.current = state.questionIndex
+        const shieldActive = state.activeEffects.some(e => e.type === 'shield')
+        game.addQuestionResult({
+          question: q.question_text, playerAnswer: frqText, correct: result.is_correct,
+          explanation: result.explanation, conceptName: q.concept,
+          damage: result.is_correct ? state.bossDamageOnCorrect : 0,
+          playerDamage: result.is_correct ? 0 : (shieldActive ? 0 : state.playerDamageOnWrong),
+        })
+      }
+      combat.submitFreeResponse(result.is_correct)
+    } catch {
+      setFrqResult({ explanation: q.explanation, bossDialogue: q.dialogue })
+      combat.submitFreeResponse(false)
+    } finally {
+      setJudgingFrq(false)
+      combat.resumeTimer()  // always unfreeze — LOAD_QUESTION also resets it
+    }
+  }
+
   const isActive      = state.phase === PHASES.ACTIVE
   const isReveal      = state.phase === PHASES.REVEAL
   const isExplanation = state.phase === PHASES.EXPLANATION
@@ -586,9 +654,14 @@ function BattleUI() {
   const timerPct    = state.totalTime > 0 ? (state.timeRemaining / state.totalTime) * 100 : 0
   const timerLow    = timerPct < 25
 
-  const wrongTaunt = ((isReveal || isExplanation) && !state.isCorrect && state.selectedAnswer)
+  const isFrq = q?.question_type === 'free_response'
+
+  const wrongTaunt = ((isReveal || isExplanation) && !state.isCorrect && state.selectedAnswer && !isFrq)
     ? q?.wrong_taunts.find(t => t.answer === state.selectedAnswer)?.taunt : undefined
-  const dialogue = wrongTaunt ?? q?.dialogue ?? ''
+  const dialogue = (isFrq && frqResult?.bossDialogue && (isReveal || isExplanation))
+    ? frqResult.bossDialogue
+    : (wrongTaunt ?? q?.dialogue ?? '')
+  const explanationText = (isFrq && frqResult?.explanation) ? frqResult.explanation : q?.explanation
 
   const inventorySlots = state.inventory.slice(0, MAX_INVENTORY)
   const bossCategory   = game.currentBoss.sprite_category ?? 'bat'
@@ -692,7 +765,9 @@ function BattleUI() {
           <div style={{ position: 'absolute', bottom: 10, left: 14, display: 'flex', gap: 6, zIndex: 5 }}>
             {Array.from({ length: MAX_INVENTORY }).map((_, slotIdx) => {
               const item    = inventorySlots[slotIdx]
-              const canUse  = isActive && !!item
+              const MCQ_ONLY_EFFECTS = ['eliminate_wrong', 'eliminate_two', 'reveal_answer']
+              const isMcqOnly = !!item && MCQ_ONLY_EFFECTS.includes(item.effect)
+              const canUse  = isActive && !!item && !(isFrq && isMcqOnly)
               const isHover = hoveredSlot === slotIdx
               const c       = item ? RARITY_COLOR[item.rarity] : '#222'
               return (
@@ -734,6 +809,7 @@ function BattleUI() {
                       <div style={{ fontSize: 5, color: '#666', lineHeight: 1.5 }}>{item.description}</div>
                       <div style={{ fontSize: 4, color: `${c}77`, marginTop: 4, letterSpacing: 2, textTransform: 'uppercase' }}>{item.rarity}</div>
                       {!isActive && <div style={{ fontSize: 4, color: '#FF004077', marginTop: 3 }}>ACTIVE ONLY</div>}
+                      {isFrq && isMcqOnly && <div style={{ fontSize: 4, color: '#FF990077', marginTop: 3 }}>MCQ ONLY</div>}
                     </div>
                   )}
                 </div>
@@ -805,42 +881,97 @@ function BattleUI() {
 
                   <div style={{ width: 1, backgroundColor: '#ffffff0a', flexShrink: 0 }} />
 
-                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'center' }}>
-                    {choices.map(choice => {
-                      const isSel  = state.selectedAnswer === choice.id
-                      const isCorr = choice.id === q.correctAnswerId
-                      const isDis  = !isActive
+                  {isFrq ? (
+                    /* ── Free-response input ── */
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
+                      {(isReveal || isExplanation) ? (
+                        /* Show the player's submitted answer with a result badge */
+                        <div style={{ border: `1px solid ${state.isCorrect ? '#39FF1444' : '#FF004044'}`, backgroundColor: state.isCorrect ? '#001a08' : '#1a0005', padding: '10px 12px' }}>
+                          <div style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: state.isCorrect ? '#39FF1488' : '#FF004088', letterSpacing: 2, marginBottom: 4 }}>
+                            YOUR ANSWER
+                          </div>
+                          <p style={{ margin: 0, fontSize: 'clamp(6px, 1vw, 8px)', color: '#aaaaaa', lineHeight: 1.7 }}>{frqText}</p>
+                        </div>
+                      ) : (
+                        <>
+                          <textarea
+                            value={frqText}
+                            onChange={e => setFrqText(e.target.value)}
+                            disabled={!isActive || judgingFrq}
+                            placeholder="Type your answer here..."
+                            style={{
+                              fontFamily: 'var(--font-pixel), monospace',
+                              fontSize: 'clamp(6px, 1vw, 8px)',
+                              color: '#cccccc', backgroundColor: '#050510',
+                              border: '1px solid #00f0ff33',
+                              padding: '10px 12px', resize: 'none', height: 80,
+                              lineHeight: 1.7, outline: 'none',
+                              opacity: judgingFrq ? 0.5 : 1,
+                            }}
+                            onFocus={e => { e.currentTarget.style.borderColor = '#00f0ff77' }}
+                            onBlur={e  => { e.currentTarget.style.borderColor = '#00f0ff33' }}
+                          />
+                          <button
+                            onClick={handleFrqSubmit}
+                            disabled={!isActive || judgingFrq || !frqText.trim()}
+                            style={{
+                              fontFamily: 'var(--font-pixel), monospace',
+                              fontSize: 'clamp(6px, 1vw, 8px)',
+                              letterSpacing: 2, padding: '9px 0',
+                              color: judgingFrq ? '#555' : '#00f0ff',
+                              backgroundColor: judgingFrq ? '#05050d' : '#001018',
+                              border: `1px solid ${judgingFrq ? '#222' : '#00f0ff44'}`,
+                              cursor: (!isActive || judgingFrq || !frqText.trim()) ? 'default' : 'pointer',
+                              transition: 'all 0.15s',
+                              animation: isActive && !judgingFrq && frqText.trim() ? 'choicePulse 2s ease-in-out infinite' : 'none',
+                            }}
+                            onMouseEnter={e => { if (isActive && !judgingFrq && frqText.trim()) { e.currentTarget.style.backgroundColor = '#002030'; e.currentTarget.style.borderColor = '#00f0ff' } }}
+                            onMouseLeave={e => { if (isActive && !judgingFrq && frqText.trim()) { e.currentTarget.style.backgroundColor = '#001018'; e.currentTarget.style.borderColor = '#00f0ff44' } }}
+                          >
+                            {judgingFrq ? '▋ JUDGING...' : '► SUBMIT ANSWER'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    /* ── Multiple choice grid ── */
+                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'center' }}>
+                      {choices.map(choice => {
+                        const isSel  = state.selectedAnswer === choice.id
+                        const isCorr = choice.id === q.correctAnswerId
+                        const isDis  = !isActive
 
-                      let bg = '#050510', border = '#00f0ff33', color = '#00f0ff'
-                      if (isReveal || isExplanation) {
-                        if (isCorr)      { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
-                        else if (isSel)  { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
-                        else             { bg = '#080808'; border = '#111';    color = '#333'    }
-                      } else if (isDis)  { bg = '#080808'; border = '#111';    color = '#333'    }
+                        let bg = '#050510', border = '#00f0ff33', color = '#00f0ff'
+                        if (isReveal || isExplanation) {
+                          if (isCorr)      { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
+                          else if (isSel)  { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
+                          else             { bg = '#080808'; border = '#111';    color = '#333'    }
+                        } else if (isDis)  { bg = '#080808'; border = '#111';    color = '#333'    }
 
-                      return (
-                        <button
-                          key={choice.id}
-                          onClick={() => handleAnswer(choice.id)}
-                          disabled={isDis}
-                          style={{
-                            fontFamily: 'var(--font-pixel), monospace',
-                            fontSize: 'clamp(6px, 1vw, 8px)',
-                            letterSpacing: 1, color, backgroundColor: bg,
-                            border: `1px solid ${border}`,
-                            padding: '9px 12px', textAlign: 'left',
-                            cursor: isDis ? 'default' : 'pointer',
-                            transition: 'all 0.15s', lineHeight: 1.7,
-                            animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
-                          }}
-                          onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
-                          onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
-                        >
-                          {choice.id}) {choice.text}
-                        </button>
-                      )
-                    })}
-                  </div>
+                        return (
+                          <button
+                            key={choice.id}
+                            onClick={() => handleAnswer(choice.id)}
+                            disabled={isDis}
+                            style={{
+                              fontFamily: 'var(--font-pixel), monospace',
+                              fontSize: 'clamp(6px, 1vw, 8px)',
+                              letterSpacing: 1, color, backgroundColor: bg,
+                              border: `1px solid ${border}`,
+                              padding: '9px 12px', textAlign: 'left',
+                              cursor: isDis ? 'default' : 'pointer',
+                              transition: 'all 0.15s', lineHeight: 1.7,
+                              animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
+                            }}
+                            onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
+                            onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
+                          >
+                            {choice.id}) {choice.text}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Explanation strip — slides in after answering */}
@@ -859,7 +990,7 @@ function BattleUI() {
                         Explanation
                       </div>
                       <p style={{ margin: 0, fontSize: 'clamp(6px, 1.05vw, 8px)', color: '#99bbbb', lineHeight: 1.85 }}>
-                        {q.explanation}
+                        {explanationText}
                       </p>
                     </div>
 
