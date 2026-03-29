@@ -11,13 +11,13 @@ import os
 import json
 import io
 import PyPDF2
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from models import KnowledgeGraph, Boss, Question, AnswerJudgment
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-_model = genai.GenerativeModel("gemini-2.5-flash")
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+_MODEL  = "gemini-2.5-flash"
 
 
 # ---------------------------------------------------------------------------
@@ -67,8 +67,8 @@ Extract 3-6 major topics. Each topic must be a distinct, testable area of the ma
 Study material:
 {text[:6000]}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return KnowledgeGraph.from_dict(data)
 
 
@@ -105,8 +105,8 @@ Return ONLY valid JSON with no markdown fences:
     "topic_ids": {json.dumps(topic_ids)}
 }}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return Boss.from_dict(data, is_final=is_final)
 
 
@@ -167,8 +167,8 @@ Return ONLY valid JSON with no markdown fences:
     "damage_on_wrong": {5 * difficulty_tier + 5}
 }}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return Question.from_dict(data)
 
 
@@ -196,6 +196,6 @@ Return ONLY valid JSON with no markdown fences:
     "add_to_weak_spots": true if the player answered incorrectly
 }}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return AnswerJudgment.from_dict(data)

@@ -8,7 +8,7 @@ import base64
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from game_engine import create_game, start_run, summon_boss, next_boss, get_session
-from gemini_pipeline import _model, _parse_json
+from gemini_pipeline import _client, _MODEL, _parse_json
 
 app = Flask(__name__)
 CORS(app)
@@ -154,8 +154,8 @@ Return ONLY valid JSON with no markdown fences:
 }}"""
 
     try:
-        response = _model.generate_content(prompt)
-        result = _parse_json(response.text)
+        response = _client.models.generate_content(model=_MODEL, contents=prompt)
+        result = _parse_json(response.text or "")
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -198,8 +198,8 @@ Rules:
 - If incorrect: damage=0,  playerDamage=20, scoreGained=0"""
 
     try:
-        response = _model.generate_content(prompt)
-        result = _parse_json(response.text)
+        response = _client.models.generate_content(model=_MODEL, contents=prompt)
+        result = _parse_json(response.text or "")
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
