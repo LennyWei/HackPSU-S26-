@@ -5,23 +5,60 @@ import { useRouter } from 'next/navigation'
 import { useGame } from '@/context/GameContext'
 import CosmicStarfield from '@/components/ui/cosmic-starfield'
 
-/* ── Lobby-matching palette ── */
+/* ── PALETTE ──────────────────────────────────────────────── */
 const C = {
-  bg:       '#08051a',
-  panel:    '#0e0c1e',
-  border:   '#2a2a40',
-  borderHi: '#4a4a70',
-  text:     '#a8b8c4',
-  textDim:  '#3a4a54',
-  accent:   '#5a8fa8',
-  gold:     '#9a8050',
-  green:    '#4a7858',
-  red:      '#8a3a30',
-  greenHi:  '#6ab878',
-  redHi:    '#cc5555',
+  bg:          '#0a0a0f',
+  panel:       '#0d0d18',
+  cyanBorder:  '#007a8a',
+  gold:        '#ffd600',
+  goldBg:      '#0e0b00',
+  text:        '#b8ccd6',
+  textDim:     '#2a3a44',
+  lockedBorder:'#4a6a7a',
+  green:       '#00ff88',
+  greenBg:     '#006644',
+  dimPipBg:    '#1a1a2e',
+  redHi:       '#cc5555',
+  greenHi:     '#6ab878',
+  cardGreen:   '#4a7858',
+  cardRed:     '#8a3a30',
 }
 
-/* ─── Pixel explosion animation ─── */
+/* ── CLIP-PATH CONSTANTS ─────────────────────────────────── */
+const OCT8 = 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px)'
+const OCT4 = 'polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0% calc(100% - 4px), 0% 4px)'
+
+/* ── PANEL BOX ───────────────────────────────────────────── */
+function PanelBox({ children, innerStyle }: {
+  children: React.ReactNode
+  innerStyle?: React.CSSProperties
+}) {
+  return (
+    <div style={{ background: C.cyanBorder, clipPath: OCT8, padding: 2 }}>
+      <div style={{ background: C.panel, clipPath: OCT8, ...innerStyle }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/* ── PROGRESS PIP ────────────────────────────────────────── */
+function Pip({ filled }: { filled: boolean }) {
+  return (
+    <div style={{
+      background: filled ? C.green : C.lockedBorder,
+      clipPath: OCT4, padding: 1,
+      width: 18, height: 18, flexShrink: 0,
+    }}>
+      <div style={{
+        background: filled ? C.greenBg : C.dimPipBg,
+        clipPath: OCT4, width: '100%', height: '100%',
+      }} />
+    </div>
+  )
+}
+
+/* ── PIXEL EXPLOSION ─────────────────────────────────────── */
 function PixelExplosion() {
   return (
     <div style={{ position: 'relative', width: 100, height: 100, margin: '0 auto' }}>
@@ -30,11 +67,9 @@ function PixelExplosion() {
         const dist  = 30 + Math.random() * 30
         return (
           <div key={i} style={{
-            position: 'absolute',
-            left: '50%', top: '50%',
-            width: 4 + Math.random() * 6,
-            height: 4 + Math.random() * 6,
-            backgroundColor: i % 3 === 0 ? C.gold : C.red,
+            position: 'absolute', left: '50%', top: '50%',
+            width: 4 + Math.random() * 6, height: 4 + Math.random() * 6,
+            backgroundColor: i % 3 === 0 ? C.gold : C.redHi,
             boxShadow: `0 0 4px ${C.gold}66`,
             animation: `explode${i % 4} 0.6s ease-out forwards`,
             '--dx': `${Math.cos(angle) * dist}px`,
@@ -46,36 +81,20 @@ function PixelExplosion() {
   )
 }
 
-/* ─── Pixel corner accent ─── */
-function PixelCorner({ pos, color }: { pos: 'tl'|'tr'|'bl'|'br'; color: string }) {
-  const isTop  = pos.startsWith('t')
-  const isLeft = pos.endsWith('l')
-  return (
-    <div style={{
-      position: 'absolute',
-      ...(isTop  ? { top: -1 }    : { bottom: -1 }),
-      ...(isLeft ? { left: -1 }   : { right: -1 }),
-      width: 10, height: 10,
-      borderTop:    isTop  ? `2px solid ${color}` : 'none',
-      borderBottom: !isTop ? `2px solid ${color}` : 'none',
-      borderLeft:   isLeft ? `2px solid ${color}` : 'none',
-      borderRight:  !isLeft ? `2px solid ${color}` : 'none',
-      pointerEvents: 'none',
-    }} />
-  )
-}
-
-/* ─── Question result card ─── */
-function ResultCard({ result, index }: { result: import('@/context/GameContext').QuestionResult; index: number }) {
+/* ── RESULT CARD ─────────────────────────────────────────── */
+function ResultCard({ result, index }: {
+  result: import('@/context/GameContext').QuestionResult
+  index: number
+}) {
   const [expanded, setExpanded] = useState(false)
   const correct     = result.correct
-  const borderColor = correct ? C.green : C.red
+  const borderColor = correct ? C.cardGreen : C.cardRed
   const hiColor     = correct ? C.greenHi : C.redHi
 
   return (
     <div
       style={{
-        position: 'relative',
+        clipPath: OCT8,
         border: `1px solid ${borderColor}44`,
         backgroundColor: correct ? '#080f0a' : '#0f0808',
         padding: '12px 14px',
@@ -84,14 +103,10 @@ function ResultCard({ result, index }: { result: import('@/context/GameContext')
       }}
       onClick={() => setExpanded(e => !e)}
     >
-      <PixelCorner pos="tl" color={`${borderColor}66`} />
-      <PixelCorner pos="br" color={`${borderColor}66`} />
-
       {/* Badge */}
       <div style={{
-        position: 'absolute', top: 10, right: 10,
-        fontSize: 'clamp(9px, 1vw, 11px)',
-        color: hiColor, letterSpacing: 2,
+        position: 'absolute' as const, top: 10, right: 10,
+        fontSize: 'clamp(9px, 1vw, 11px)', color: hiColor, letterSpacing: 2,
       }}>
         {correct ? '✓ CORRECT' : '✗ WRONG'}
       </div>
@@ -108,24 +123,21 @@ function ResultCard({ result, index }: { result: import('@/context/GameContext')
         }
       </div>
 
-      {/* Question */}
       <p style={{ margin: '0 0 6px', fontSize: 'clamp(9px, 1.1vw, 12px)', color: C.text, lineHeight: 1.8 }}>
         {result.question}
       </p>
 
-      {/* Player answer */}
       <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: hiColor, lineHeight: 1.6, marginBottom: expanded ? 10 : 0 }}>
         Your answer: &ldquo;{result.playerAnswer}&rdquo;
       </div>
 
-      {/* Expandable explanation */}
       {expanded && (
         <div style={{
           marginTop: 10, paddingTop: 10,
           borderTop: `1px solid ${borderColor}22`,
           animation: 'fadeIn 0.25s ease',
         }}>
-          <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.accent, letterSpacing: 2, marginBottom: 6 }}>
+          <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.cyanBorder, letterSpacing: 2, marginBottom: 6 }}>
             ── EXPLANATION ──
           </div>
           <p style={{ margin: 0, fontSize: 'clamp(9px, 1.1vw, 12px)', color: C.text, lineHeight: 2 }}>
@@ -141,33 +153,69 @@ function ResultCard({ result, index }: { result: import('@/context/GameContext')
   )
 }
 
-/* ─── Tab button ─── */
-function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+/* ── TAB ─────────────────────────────────────────────────── */
+function Tab({ label, active, onClick, variant }: {
+  label: string; active: boolean; onClick: () => void; variant: 'victory' | 'review'
+}) {
+  const activeBorder = variant === 'victory' ? C.gold : C.cyanBorder
+  const activeBg     = variant === 'victory' ? '#0f0f1a' : C.panel
+  const activeText   = variant === 'victory' ? C.gold : C.text
+
+  const borderColor = active ? activeBorder : C.lockedBorder
+  const bgColor     = active ? activeBg : C.panel
+  const textColor   = active ? activeText : C.lockedBorder
+
   return (
-    <button onClick={onClick} style={{
-      fontFamily: 'var(--font-pixel), monospace',
-      fontSize: 'clamp(9px, 1vw, 11px)', letterSpacing: 2,
-      color: active ? C.bg : C.textDim,
-      backgroundColor: active ? C.gold : 'transparent',
-      border: `1px solid ${active ? C.gold : C.border}`,
-      padding: '8px 16px', cursor: 'pointer',
-      transition: 'all 0.15s',
-      flex: 1,
-    }}>{label}</button>
+    <div style={{ flex: 1, cursor: 'pointer' }} onClick={onClick}>
+      <div style={{ background: borderColor, clipPath: OCT8, padding: 2, transition: 'background 0.15s' }}>
+        <div style={{
+          background: bgColor, clipPath: OCT8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '8px 16px', transition: 'background 0.15s',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-pixel), monospace',
+            fontSize: 'clamp(9px, 1vw, 11px)', letterSpacing: 2,
+            color: textColor, transition: 'color 0.15s',
+          }}>{label}</span>
+        </div>
+      </div>
+    </div>
   )
 }
 
+/* ── GOLD BUTTON ─────────────────────────────────────────── */
+function GoldButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <div style={{ cursor: 'pointer' }} onClick={onClick}>
+      <div style={{ background: C.gold, clipPath: OCT8, padding: 2 }}>
+        <div style={{
+          background: C.goldBg, clipPath: OCT8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '14px 24px',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-pixel), monospace',
+            fontSize: 'clamp(7px, 1.8vw, 10px)', letterSpacing: 3,
+            color: C.gold,
+          }}>{children}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── PAGE ────────────────────────────────────────────────── */
 export default function TransitionPage() {
   const router = useRouter()
   const { currentBossIndex, totalBosses, lastBossResults, clearLastBossResults, score } = useGame()
-  const [tab, setTab]         = useState<'victory' | 'review'>('victory')
-  const [btnHover, setBtnHover] = useState(false)
+  const [tab, setTab]           = useState<'victory' | 'review'>('victory')
   const [countdown, setCountdown] = useState(0)
 
-  const prevBossIndex  = currentBossIndex - 1
-  const correctCount   = lastBossResults.filter(r => r.correct).length
-  const totalCount     = lastBossResults.length
-  const accuracy       = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0
+  const prevBossIndex = currentBossIndex - 1
+  const correctCount  = lastBossResults.filter(r => r.correct).length
+  const totalCount    = lastBossResults.length
+  const accuracy      = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0
 
   useEffect(() => {
     if (tab !== 'victory') return
@@ -202,12 +250,12 @@ export default function TransitionPage() {
         @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
         ${Array.from({ length: 4 }, (_, i) => `
           @keyframes explode${i} {
-            0%{transform:translate(-50%,-50%) scale(1);opacity:1}
+            0%  {transform:translate(-50%,-50%) scale(1);opacity:1}
             100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0);opacity:0}
           }
         `).join('\n')}
         ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-thumb { background: ${C.border}; }
+        ::-webkit-scrollbar-thumb { background: ${C.cyanBorder}; }
         ::-webkit-scrollbar-track { background: ${C.bg}; }
       `}</style>
 
@@ -218,11 +266,13 @@ export default function TransitionPage() {
         position: 'relative', overflow: 'hidden',
       }}>
         <CosmicStarfield />
+
+        {/* CRT scanlines */}
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
-          backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.10) 2px,rgba(0,0,0,0.10) 4px)',
-          animation: 'scanlines 0.1s linear infinite',
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px)',
         }} />
+        {/* Vignette */}
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
           background: 'radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.72) 100%)',
@@ -235,7 +285,7 @@ export default function TransitionPage() {
           padding: '16px 24px 28px', gap: 12,
         }}>
 
-          {/* Header */}
+          {/* ── Header ── */}
           <div style={{ textAlign: 'center', paddingTop: 10 }}>
             <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 3, marginBottom: 8 }}>
               BOSS {prevBossIndex + 1} OF {totalBosses} CLEARED
@@ -274,68 +324,54 @@ export default function TransitionPage() {
           {/* Divider */}
           <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}66, transparent)` }} />
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4 }}>
-            <Tab label="VICTORY"            active={tab === 'victory'} onClick={() => setTab('victory')} />
-            <Tab label={`REVIEW (${totalCount})`} active={tab === 'review'}  onClick={() => setTab('review')} />
+          {/* ── Tabs ── */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Tab label="VICTORY"                  variant="victory" active={tab === 'victory'} onClick={() => setTab('victory')} />
+            <Tab label={`REVIEW (${totalCount})`} variant="review"  active={tab === 'review'}  onClick={() => setTab('review')} />
           </div>
 
-          {/* Victory tab */}
+          {/* ── Victory tab ── */}
           {tab === 'victory' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'fadeIn 0.3s ease' }}>
 
               {/* Progress tracker */}
-              <div style={{
-                position: 'relative',
-                border: `1px solid ${C.border}`,
-                backgroundColor: C.panel, padding: '16px', textAlign: 'center',
-              }}>
-                <PixelCorner pos="tl" color={C.borderHi} />
-                <PixelCorner pos="br" color={C.borderHi} />
+              <PanelBox innerStyle={{ padding: '16px', textAlign: 'center' }}>
                 <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>
                   BOSS RUSH PROGRESS
                 </div>
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
                   {Array.from({ length: totalBosses }, (_, i) => (
-                    <div key={i} style={{
-                      width: 24, height: 24,
-                      backgroundColor: i < currentBossIndex ? C.green : i === prevBossIndex + 1 ? C.red : '#0e0c1e',
-                      boxShadow: i < currentBossIndex ? `0 0 4px ${C.green}66` : 'none',
-                      border: i === prevBossIndex ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
-                      transition: 'all 0.3s',
-                    }} />
+                    <Pip key={i} filled={i < currentBossIndex} />
                   ))}
                 </div>
-                <div style={{ marginTop: 8, fontSize: 'clamp(9px, 1vw, 11px)', color: C.greenHi, letterSpacing: 2 }}>
+                <div style={{ marginTop: 10, fontSize: 'clamp(9px, 1vw, 11px)', color: C.green, letterSpacing: 2 }}>
                   {currentBossIndex} / {totalBosses} BOSSES DEFEATED
                 </div>
-              </div>
+              </PanelBox>
 
               {/* Battle summary */}
-              <div style={{
-                position: 'relative',
-                border: `1px solid ${C.border}`,
-                backgroundColor: C.panel, padding: '14px',
-              }}>
-                <PixelCorner pos="tl" color={C.borderHi} />
-                <PixelCorner pos="br" color={C.borderHi} />
+              <PanelBox innerStyle={{ padding: '14px' }}>
                 <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>
                   ── BATTLE SUMMARY ──
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
-                    { label: 'CORRECT HITS',     value: `${correctCount}`,           color: C.greenHi },
-                    { label: 'MISSED SHOTS',      value: `${totalCount - correctCount}`, color: C.redHi },
-                    { label: 'ACCURACY',          value: `${accuracy}%`,              color: accuracy >= 70 ? C.greenHi : C.gold },
-                    { label: 'SCORE THIS ROUND',  value: score.toLocaleString(),       color: C.gold },
+                    { label: 'CORRECT HITS',    value: `${correctCount}`,                 color: C.greenHi },
+                    { label: 'MISSED SHOTS',     value: `${totalCount - correctCount}`,    color: C.redHi },
+                    { label: 'ACCURACY',         value: `${accuracy}%`,                   color: accuracy >= 70 ? C.greenHi : C.gold },
+                    { label: 'SCORE THIS ROUND', value: score.toLocaleString(),            color: C.gold },
                   ].map(({ label, value, color }) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${C.border}` }}>
+                    <div key={label} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '7px 0 7px 10px',
+                      borderLeft: `2px solid ${C.cyanBorder}`,
+                    }}>
                       <span style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2 }}>{label}</span>
                       <span style={{ fontSize: 'clamp(9px, 1vw, 11px)', color }}>{value}</span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </PanelBox>
 
               <div style={{ textAlign: 'center', fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 2 }}>
                 CHECK THE REVIEW TAB FOR DETAILED EXPLANATIONS
@@ -347,25 +383,11 @@ export default function TransitionPage() {
                 ...
               </div>
 
-              <button
-                style={{
-                  fontFamily: 'var(--font-pixel), monospace',
-                  fontSize: 'clamp(7px, 1.8vw, 10px)', letterSpacing: 3,
-                  color: btnHover ? C.bg : C.accent,
-                  backgroundColor: btnHover ? C.accent : 'transparent',
-                  border: `2px solid ${C.accent}`, padding: '14px',
-                  cursor: 'pointer', transition: 'all 0.12s ease',
-                }}
-                onMouseEnter={() => setBtnHover(true)}
-                onMouseLeave={() => setBtnHover(false)}
-                onClick={goNext}
-              >
-                ► NEXT CHALLENGER ◄
-              </button>
+              <GoldButton onClick={goNext}>► NEXT CHALLENGER ◄</GoldButton>
             </div>
           )}
 
-          {/* Review tab */}
+          {/* ── Review tab ── */}
           {tab === 'review' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, animation: 'fadeIn 0.3s ease' }}>
               <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 2, marginBottom: 4 }}>
@@ -382,20 +404,10 @@ export default function TransitionPage() {
                 ))
               )}
 
-              <button
-                style={{
-                  fontFamily: 'var(--font-pixel), monospace',
-                  fontSize: 'clamp(7px, 1.8vw, 10px)', letterSpacing: 3,
-                  color: C.accent, backgroundColor: 'transparent',
-                  border: `2px solid ${C.accent}`, padding: '14px',
-                  cursor: 'pointer', marginTop: 10,
-                }}
-                onClick={goNext}
-              >
-                ► NEXT CHALLENGER ◄
-              </button>
+              <GoldButton onClick={goNext}>► NEXT CHALLENGER ◄</GoldButton>
             </div>
           )}
+
         </div>
       </div>
     </>

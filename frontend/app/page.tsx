@@ -4,56 +4,117 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGame } from '@/context/GameContext'
 import { uploadPDF } from '@/lib/api'
-import PixelButton from '@/components/ui/pixel-hover-effect'
 import CosmicStarfield, { CosmicStarfieldHandle } from '@/components/ui/cosmic-starfield'
-import { emitSfx } from '@/lib/audio-events'
 
-/* palette */
+/* ── PALETTE ─────────────────────────────────────────────── */
 const C = {
-  bg:      '#08051a',
-  panel:   '#0e1318',
-  border:  '#2a3340',
-  borderHi:'#4a6070',
-  text:    '#a8b8c4',
-  textDim: '#3a4a54',
-  accent:  '#5a8fa8',   // muted steel blue
-  gold:    '#9a8050',   // muted amber
-  green:   '#4a7858',   // muted sage
-  red:     '#8a3a30',   // muted brick
+  bg:          '#0a0a0f',
+  panel:       '#0d0d18',
+  cyan:        '#00e5ff',
+  cyanBorder:  '#007a8a',   // default zone / unselected button border
+  cyanActiveBg:'#071416',   // ≈ rgba(0,229,255,0.1) over bg
+  purple:      '#aa00ff',
+  pink:        '#ff0088',
+  gold:        '#ffd600',   // unlocked button border/text
+  goldAlt:     '#a88a00',   // step-end pulse alternate
+  goldBg:      '#0e0b00',   // ≈ rgba(255,214,0,0.06) over bg
+  goldDim:     '#261a00',
+  text:        '#b8ccd6',
+  textDim:     '#2a3a44',
+  lockedBorder:'#4a6a7a',   // locked button border/text
+  green:       '#00ff88',
+  red:         '#ff3838',
+  dimBorder:   '#1a2830',
 }
 
-/* ─────────────────────────────────────────────
-   PIXEL CORNER
-───────────────────────────────────────────── */
-function PixelCorner({ pos, color }: { pos: 'tl' | 'tr' | 'bl' | 'br'; color: string }) {
-  const isTop  = pos.startsWith('t')
-  const isLeft = pos.endsWith('l')
+/* ── CLIP-PATH OCTAGONS ──────────────────────────────────── */
+const OCT8 = 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px)'
+const OCT5 = 'polygon(5px 0%, calc(100% - 5px) 0%, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0% calc(100% - 5px), 0% 5px)'
+
+/* ── SPARK PARTICLES ─────────────────────────────────────── */
+type Spark = {
+  id: number; x: number; y: number; vx: number; vy: number
+  color: string; size: number; life: number; maxLife: number
+}
+const SPARK_COLORS = ['#00e5ff', '#aa00ff', '#ff0088', '#ffc700', '#ffffff']
+
+function SparkParticles() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const sparksRef = useRef<Spark[]>([])
+  const frameRef  = useRef(0)
+  const nextId    = useRef(0)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const resize = () => {
+      canvas.width  = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    let tick = 0
+    const animate = () => {
+      frameRef.current = requestAnimationFrame(animate)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      tick++
+
+      if (tick % 3 === 0 && sparksRef.current.length < 70) {
+        const cx = canvas.width / 2
+        const cy = canvas.height / 2
+        const angle = Math.random() * Math.PI * 2
+        const speed = 0.4 + Math.random() * 1.4
+        sparksRef.current.push({
+          id: nextId.current++,
+          x: cx + (Math.random() - 0.5) * 60,
+          y: cy + (Math.random() - 0.5) * 60,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color: SPARK_COLORS[Math.floor(Math.random() * SPARK_COLORS.length)],
+          size: Math.random() < 0.4 ? 3 : 2,
+          life: 0,
+          maxLife: 100 + Math.random() * 200,
+        })
+      }
+
+      sparksRef.current = sparksRef.current.filter(s => s.life < s.maxLife)
+      for (const s of sparksRef.current) {
+        s.x += s.vx; s.y += s.vy; s.life++
+        ctx.globalAlpha = Math.pow(1 - s.life / s.maxLife, 1.4)
+        ctx.fillStyle   = s.color
+        ctx.fillRect(Math.round(s.x), Math.round(s.y), s.size, s.size)
+      }
+      ctx.globalAlpha = 1
+    }
+    animate()
+
+    return () => {
+      cancelAnimationFrame(frameRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
   return (
-    <div style={{
-      position: 'absolute',
-      ...(isTop  ? { top: -1 }    : { bottom: -1 }),
-      ...(isLeft ? { left: -1 }   : { right: -1 }),
-      width: 12, height: 12,
-      borderTop:    isTop    ? `2px solid ${color}` : 'none',
-      borderBottom: !isTop   ? `2px solid ${color}` : 'none',
-      borderLeft:   isLeft   ? `2px solid ${color}` : 'none',
-      borderRight:  !isLeft  ? `2px solid ${color}` : 'none',
-      pointerEvents: 'none',
-    }} />
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none' }}
+    />
   )
 }
 
-/* ─────────────────────────────────────────────
-   UPLOAD ZONE
-───────────────────────────────────────────── */
+/* ── UPLOAD ZONE ─────────────────────────────────────────── */
 function UploadZone({ onFiles }: { onFiles: (files: File[]) => void }) {
-  const [dragging, setDragging]   = useState(false)
-  const [files, setFiles]         = useState<File[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [files, setFiles]       = useState<File[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming) return
-    const pdfs = Array.from(incoming).filter(f => f.type === 'application/pdf')
+    const pdfs  = Array.from(incoming).filter(f => f.type === 'application/pdf')
     if (!pdfs.length) return
     const names = new Set(files.map(f => f.name))
     const next  = [...files, ...pdfs.filter(f => !names.has(f.name))]
@@ -67,21 +128,20 @@ function UploadZone({ onFiles }: { onFiles: (files: File[]) => void }) {
     onFiles(next)
   }
 
-  const borderColor = dragging ? C.accent : files.length > 0 ? C.green : C.border
+  const zoneBorder = dragging ? C.cyan : C.cyanBorder
+  const zoneBg     = C.bg
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* Drop zone */}
+
+      {/* ── Drop zone ── */}
       <div
         style={{
-          width: '100%', minHeight: 100,
-          border: `2px solid ${borderColor}`,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', padding: '18px 16px', boxSizing: 'border-box',
-          transition: 'border-color 0.2s, background-color 0.2s',
-          backgroundColor: dragging ? `${C.accent}08` : `${C.panel}`,
-          position: 'relative',
+          background: zoneBorder,
+          clipPath: OCT8,
+          padding: 2,
+          cursor: 'pointer',
+          transition: 'background 0.15s',
         }}
         onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
@@ -90,66 +150,99 @@ function UploadZone({ onFiles }: { onFiles: (files: File[]) => void }) {
         role="button" tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
       >
-        <input
-          ref={inputRef} type="file" accept=".pdf" multiple
-          style={{ display: 'none' }}
-          onChange={(e) => addFiles(e.target.files)}
-        />
-        <PixelCorner pos="tl" color={borderColor} />
-        <PixelCorner pos="tr" color={borderColor} />
-        <PixelCorner pos="bl" color={borderColor} />
-        <PixelCorner pos="br" color={borderColor} />
-        <p style={{
-          margin: 0, fontSize: 'clamp(7px, 1.6vw, 10px)',
-          color: dragging ? C.accent : C.text,
-          textAlign: 'center', lineHeight: 2.2,
-          fontFamily: 'var(--font-pixel), monospace',
+        <div style={{
+          background: zoneBg,
+          clipPath: OCT8,
+          minHeight: 94,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          padding: '20px 16px',
         }}>
-          {dragging ? '▼ DROP HERE ▼' : '▲ DROP PDF(S) HERE ▲\nor click to browse'}
-        </p>
+          <input
+            ref={inputRef} type="file" accept=".pdf" multiple
+            style={{ display: 'none' }}
+            onChange={(e) => addFiles(e.target.files)}
+          />
+          <p style={{
+            margin: 0,
+            fontSize: 'clamp(7px, 1.6vw, 10px)',
+            color: dragging ? C.cyan : C.text,
+            textAlign: 'center', lineHeight: 2.4,
+            fontFamily: 'var(--font-pixel), monospace',
+            letterSpacing: 1,
+          }}>
+            {dragging ? '▼  DROP  HERE  ▼' : '▲ DROP PDF(S) HERE ▲\nor click to browse'}
+          </p>
+        </div>
       </div>
 
-      {/* File list */}
+      {/* ── File list ── */}
       {files.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, marginBottom: 2 }}>
-            ── {files.length} FILE{files.length > 1 ? 'S' : ''} LOADED
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{
+            fontSize: 'clamp(5px, 1vw, 7px)',
+            color: C.cyan,
+            letterSpacing: 3,
+            textAlign: 'center',
+            fontFamily: 'var(--font-pixel), monospace',
+            marginBottom: 2,
+          }}>
+            -- {files.length} FILE{files.length > 1 ? 'S' : ''} LOADED --
           </div>
+
           {files.map((f) => (
-            <div key={f.name} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '6px 10px',
-              border: `1px solid ${C.border}`,
-              backgroundColor: C.panel,
-              position: 'relative',
-            }}>
-              <PixelCorner pos="tl" color={C.green} />
-              <PixelCorner pos="br" color={C.green} />
-              <span style={{ fontSize: 'clamp(6px, 1.4vw, 8px)', color: C.green, letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
-                ► {f.name}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); remove(f.name) }}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: 'clamp(7px, 1.4vw, 9px)', color: C.red,
-                  fontFamily: 'var(--font-pixel), monospace', letterSpacing: 1,
-                  padding: '2px 4px', flexShrink: 0,
-                }}
-              >
-                ✕
-              </button>
+            <div
+              key={f.name}
+              style={{ background: C.green, clipPath: OCT5, padding: 1 }}
+            >
+              <div style={{
+                background: C.panel,
+                clipPath: OCT5,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '7px 12px',
+              }}>
+                <span style={{
+                  fontSize: 'clamp(7px, 1.5vw, 9px)',
+                  color: C.green,
+                  letterSpacing: 1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  maxWidth: '80%',
+                  fontFamily: 'var(--font-mono), monospace',
+                }}>
+                  ► {f.name}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); remove(f.name) }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 'clamp(9px, 1.8vw, 12px)',
+                    color: C.red,
+                    fontFamily: 'var(--font-pixel), monospace',
+                    padding: '2px 4px', flexShrink: 0, lineHeight: 1,
+                  }}
+                >×</button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* ── Hint ── */}
+      <div style={{
+        fontSize: 'clamp(4px, 0.85vw, 6px)',
+        color: C.textDim,
+        letterSpacing: 2,
+        textAlign: 'center',
+        fontFamily: 'var(--font-pixel), monospace',
+        marginTop: 2,
+      }}>
+        BEST WITH 5–50 PAGES · PDF FORMAT ONLY
+      </div>
     </div>
   )
 }
 
-/* ─────────────────────────────────────────────
-   LOADING SCREEN
-───────────────────────────────────────────── */
+/* ── LOADING SCREEN ──────────────────────────────────────── */
 const LOADING_LINES = [
   'Reading your notes...',
   'Identifying weaknesses...',
@@ -162,7 +255,7 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
   onReady: () => void
   onError: (msg: string) => void
 }) {
-  const { initGame }  = useGame()
+  const { initGame }          = useGame()
   const [visible, setVisible] = useState<string[]>([])
   const [cursorIdx, setCursorIdx] = useState(0)
   const calledRef = useRef(false)
@@ -171,7 +264,7 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
     let i = 0
     const show = () => {
       if (i >= LOADING_LINES.length) return
-      setVisible((prev) => [...prev, LOADING_LINES[i]])
+      setVisible(prev => [...prev, LOADING_LINES[i]])
       setCursorIdx(i); i++
       if (i < LOADING_LINES.length) setTimeout(show, 1600)
     }
@@ -180,8 +273,8 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
     if (!calledRef.current) {
       calledRef.current = true
       uploadPDF(pdfBase64)
-        .then((data) => { initGame(data.bossRush, data.bosses); onReady() })
-        .catch((err)  => onError(err.message ?? 'Upload failed'))
+        .then(data => { initGame(data.bossRush, data.bosses); onReady() })
+        .catch(err  => onError(err.message ?? 'Upload failed'))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -190,26 +283,33 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
     <div style={{
       minHeight: '100vh', backgroundColor: C.bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font-pixel), monospace', position: 'relative', overflow: 'hidden',
+      fontFamily: 'var(--font-pixel), monospace',
+      position: 'relative', overflow: 'hidden',
     }}>
       <CosmicStarfield />
+      <SparkParticles />
       <div style={{
         position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
-        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.10) 2px, rgba(0,0,0,0.10) 4px)',
+        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px)',
       }} />
-      <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', gap: 24, padding: 40 }}>
-        <p style={{ margin: 0, marginBottom: 8, fontSize: 'clamp(7px, 2vw, 12px)', color: C.accent, letterSpacing: 3 }}>
+      <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', gap: 22, padding: 40 }}>
+        <p style={{ margin: 0, marginBottom: 4, fontSize: 'clamp(7px, 2vw, 11px)', color: C.cyan, letterSpacing: 4 }}>
           ── LOADING ──
         </p>
         {visible.map((line, i) => (
           <p key={i} style={{
-            margin: 0, fontSize: 'clamp(7px, 1.8vw, 11px)',
-            color: C.text, lineHeight: 1.6, animation: 'fadeSlide 0.4s ease',
+            margin: 0, fontSize: 'clamp(7px, 1.8vw, 10px)',
+            color: C.text, lineHeight: 1.6,
+            animation: 'fadeSlide 0.4s ease',
+            fontFamily: 'var(--font-mono), monospace',
           }}>
             <span style={{ color: C.gold }}>&gt;&gt; </span>
             {line}
             {i === cursorIdx && (
-              <span style={{ display: 'inline-block', color: C.text, marginLeft: 3, animation: 'blink 0.75s step-start infinite' }}>█</span>
+              <span style={{
+                display: 'inline-block', color: C.cyan, marginLeft: 3,
+                animation: 'blink 0.75s step-start infinite',
+              }}>█</span>
             )}
           </p>
         ))}
@@ -218,17 +318,11 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
   )
 }
 
-/* ─────────────────────────────────────────────
-   HOME PAGE
-───────────────────────────────────────────── */
+/* ── HOME PAGE ───────────────────────────────────────────── */
 type QuestionMode = 'mcq' | 'frq' | 'both'
 
-const MODE_LABELS: Record<QuestionMode, string> = {
-  mcq:  'MCQ',
-  frq:  'FRQ',
-  both: 'BOTH',
-}
-const MODE_DESC: Record<QuestionMode, string> = {
+const MODE_LABELS: Record<QuestionMode, string> = { mcq: 'MCQ', frq: 'FRQ', both: 'BOTH' }
+const MODE_DESC: Record<QuestionMode, string>   = {
   mcq:  'Multiple choice only',
   frq:  'Free response only',
   both: 'Mixed questions',
@@ -237,6 +331,7 @@ const MODE_DESC: Record<QuestionMode, string> = {
 export default function Home() {
   const router    = useRouter()
   const cosmicRef = useRef<CosmicStarfieldHandle>(null)
+
   const [files, setFiles]         = useState<File[]>([])
   const [pdfBase64, setPdfBase64] = useState<string | null>(null)
   const [loading, setLoading]     = useState(false)
@@ -247,7 +342,6 @@ export default function Home() {
     return (localStorage.getItem('question_mode') as QuestionMode) ?? 'mcq'
   })
 
-  // Clear previous game state (inventory, etc.) when landing in the lobby
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('question_mode')
@@ -265,10 +359,7 @@ export default function Home() {
     setFiles(incoming)
     if (!incoming.length) { setPdfBase64(null); return }
     const reader = new FileReader()
-    reader.onload = () => {
-      const b64 = (reader.result as string).split(',')[1]
-      setPdfBase64(b64)
-    }
+    reader.onload = () => { setPdfBase64((reader.result as string).split(',')[1]) }
     reader.readAsDataURL(incoming[0])
   }
 
@@ -277,7 +368,7 @@ export default function Home() {
       <LoadingScreen
         pdfBase64={pdfBase64}
         onReady={() => router.push('/boss')}
-        onError={(msg) => { setError(msg); setLoading(false) }}
+        onError={msg => { setError(msg); setLoading(false) }}
       />
     )
   }
@@ -286,92 +377,134 @@ export default function Home() {
     <>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         @keyframes titleFlicker {
           0%,19%,21%,23%,54%,56%,100% { opacity: 1; }
-          20%,24%,55% { opacity: 0.7; }
+          20%,24%,55% { opacity: 0.6; }
         }
         @keyframes titlePulse {
-          0%,100% { opacity: 0.9; }
-          50%      { opacity: 1; }
+          0%,100% { opacity: 0.88; text-shadow: 0 0 8px ${C.cyan}44; }
+          50%      { opacity: 1;    text-shadow: 0 0 20px ${C.cyan}88; }
         }
         @keyframes insertCoin {
           0%,49%  { opacity: 1; }
           50%,99% { opacity: 0; }
-          100%    { opacity: 1; }
         }
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(12px); }
+          from { opacity: 0; transform: translateY(14px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
-        @keyframes fadeSlide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        ::-webkit-scrollbar { width: 6px; }
+        @keyframes fadeSlide {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes battleBorderPulse {
+          0%   { background: ${C.gold}; }
+          50%  { background: ${C.goldAlt}; }
+          100% { background: ${C.gold}; }
+        }
+        @keyframes battleTextPulse {
+          0%   { color: ${C.gold}; }
+          50%  { color: ${C.goldAlt}; }
+          100% { color: ${C.gold}; }
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: ${C.bg}; }
-        ::-webkit-scrollbar-thumb { background: ${C.border}; }
+        ::-webkit-scrollbar-thumb { background: ${C.dimBorder}; }
       `}</style>
 
       <div style={{
-        minHeight: '100vh', backgroundColor: C.bg,
+        minHeight: '100vh',
+        backgroundColor: C.bg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', overflow: 'hidden',
         fontFamily: 'var(--font-pixel), monospace',
       }}>
         <CosmicStarfield ref={cosmicRef} />
+        <SparkParticles />
+
+        {/* CRT scanlines */}
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px)',
         }} />
+        {/* Vignette */}
         <div style={{
           position: 'fixed', inset: 0, zIndex: 2, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,0.7) 100%)',
+          background: 'radial-gradient(ellipse at 50% 50%, transparent 44%, rgba(0,0,0,0.74) 100%)',
         }} />
 
-        {/* Main panel */}
+        {/* ── MAIN PANEL ── */}
         <div style={{
           position: 'relative', zIndex: 3,
           transform: warping ? 'scale(25)' : 'scale(1)',
           opacity:   warping ? 0 : 1,
           transition: warping
-            ? 'transform 0.75s cubic-bezier(0.4, 0, 1, 1), opacity 0.75s ease-in'
+            ? 'transform 0.75s cubic-bezier(0.4,0,1,1), opacity 0.75s ease-in'
             : 'none',
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', gap: 16,
-          padding: '32px 28px',
+          alignItems: 'center', gap: 18,
+          padding: '34px 28px',
           maxWidth: 520, width: '100%',
-          animation: 'fadeIn 0.6s ease',
+          animation: 'fadeIn 0.55s ease',
         }}>
-          {/* Title */}
+
+          {/* ── TITLE ── */}
           <div style={{ textAlign: 'center', width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 6 }}>
-              {['STUDY', 'BOSS'].map((word) => (
-                <h1 key={word} style={{ margin: 0, fontSize: 'clamp(13px, 3.5vw, 22px)', letterSpacing: 5, color: C.accent, animation: 'titleFlicker 7s linear infinite' }}>{word}</h1>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginBottom: 6 }}>
+              {['STUDY', 'BOSS'].map(word => (
+                <h1 key={word} style={{
+                  margin: 0,
+                  fontSize: 'clamp(12px, 3.2vw, 20px)',
+                  letterSpacing: 5, color: C.cyan,
+                  animation: 'titleFlicker 7s linear infinite',
+                  fontFamily: 'var(--font-pixel), monospace',
+                }}>{word}</h1>
               ))}
             </div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(18px, 5vw, 34px)', letterSpacing: 6, color: C.text, animation: 'titlePulse 3s ease-in-out infinite' }}>BATTLE</h1>
-            <p style={{ marginTop: 10, fontSize: 'clamp(5px, 1.3vw, 7px)', color: C.textDim, letterSpacing: 3, lineHeight: 2 }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: 'clamp(18px, 5vw, 34px)',
+              letterSpacing: 7, color: C.text,
+              animation: 'titlePulse 3s ease-in-out infinite',
+              fontFamily: 'var(--font-pixel), monospace',
+            }}>BATTLE</h1>
+            <p style={{
+              marginTop: 10,
+              fontSize: 'clamp(5px, 1.2vw, 7px)',
+              color: C.textDim, letterSpacing: 3, lineHeight: 2,
+              fontFamily: 'var(--font-pixel), monospace',
+            }}>
               UPLOAD YOUR NOTES. FACE YOUR NEMESIS.
             </p>
           </div>
 
-          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.dimBorder}, transparent)` }} />
 
+          {/* ── UPLOAD ZONE ── */}
           <UploadZone onFiles={handleFiles} />
 
           {error && (
-            <div style={{ fontSize: 'clamp(5px, 1.3vw, 7px)', color: C.red, textAlign: 'center', letterSpacing: 1 }}>
+            <div style={{
+              fontSize: 'clamp(5px, 1.2vw, 7px)',
+              color: C.red, textAlign: 'center', letterSpacing: 1,
+              fontFamily: 'var(--font-pixel), monospace',
+            }}>
               ⚠ {error}
             </div>
           )}
 
-          <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, textAlign: 'center' }}>
-            BEST WITH 5–50 PAGES · PDF FORMAT ONLY
-          </div>
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.dimBorder}, transparent)` }} />
 
-          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
-
-          {/* Question mode selector */}
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2 }}>
+          {/* ── QUESTION MODE ── */}
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{
+              fontSize: 'clamp(4px, 0.9vw, 6px)',
+              color: C.textDim, letterSpacing: 2,
+              fontFamily: 'var(--font-pixel), monospace',
+            }}>
               ── QUESTION MODE
             </div>
             <div style={{ display: 'flex', gap: 6, width: '100%' }}>
@@ -382,48 +515,110 @@ export default function Home() {
                     key={mode}
                     onClick={() => handleModeChange(mode)}
                     style={{
-                      flex: 1,
-                      fontFamily: 'var(--font-pixel), monospace',
-                      fontSize: 'clamp(6px, 1.4vw, 9px)',
-                      letterSpacing: 2,
-                      padding: '10px 0',
-                      cursor: 'pointer',
-                      border: `1px solid ${active ? C.accent : C.border}`,
-                      backgroundColor: active ? `${C.accent}22` : C.panel,
-                      color: active ? C.accent : C.textDim,
-                      transition: 'all 0.15s',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                      flex: 1, cursor: 'pointer',
+                      border: 'none', padding: 0,
+                      background: 'transparent',
                     }}
-                    onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = C.borderHi; e.currentTarget.style.color = C.text } }}
-                    onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textDim } }}
                   >
-                    <span>{MODE_LABELS[mode]}</span>
-                    <span style={{ fontSize: 'clamp(3px, 0.7vw, 5px)', color: active ? `${C.accent}bb` : C.textDim, letterSpacing: 1 }}>{MODE_DESC[mode]}</span>
+                    {/* border layer */}
+                    <div style={{
+                      background: active ? C.cyan : C.cyanBorder,
+                      clipPath: OCT8, padding: 2,
+                      transition: 'background 0.15s',
+                    }}>
+                      {/* content */}
+                      <div style={{
+                        background: active ? C.cyanActiveBg : C.panel,
+                        clipPath: OCT8,
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', gap: 5,
+                        padding: '10px 4px 9px',
+                        transition: 'background 0.15s',
+                      }}>
+                        <span style={{
+                          fontSize: 'clamp(7px, 1.5vw, 9px)',
+                          color: active ? C.cyan : C.lockedBorder,
+                          fontFamily: 'var(--font-pixel), monospace',
+                          letterSpacing: 2,
+                          transition: 'color 0.15s',
+                        }}>
+                          {MODE_LABELS[mode]}
+                        </span>
+                        <span style={{
+                          fontSize: 'clamp(4px, 0.75vw, 5px)',
+                          color: active ? `${C.cyan}bb` : C.lockedBorder,
+                          fontFamily: 'var(--font-mono), monospace',
+                          letterSpacing: 0,
+                          textAlign: 'center',
+                          lineHeight: 1.8,
+                          transition: 'color 0.15s',
+                        }}>
+                          {MODE_DESC[mode]}
+                        </span>
+                      </div>
+                    </div>
                   </button>
                 )
               })}
             </div>
           </div>
 
-          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.dimBorder}, transparent)` }} />
 
+          {/* ── START BUTTON ── */}
           {files.length > 0 ? (
-            <PixelButton color={C.accent} onClick={() => {
-              cosmicRef.current?.triggerWarp()
-              setWarping(true)
-              // Requested "revealsound" cue. Mapped to existing asset name.
-              window.setTimeout(() => {
-                emitSfx({ name: 'bossreveal sound.wav', volume: 0.5, minRate: 0.95, maxRate: 1.05 })
-              }, 500)
-              setTimeout(() => setLoading(true), 750)
-            }}>
-              ► GO TO BATTLE ◄
-            </PixelButton>
+            <div
+              style={{ cursor: 'pointer', width: '100%' }}
+              onClick={() => {
+                cosmicRef.current?.triggerWarp()
+                setWarping(true)
+                setTimeout(() => setLoading(true), 750)
+              }}
+            >
+              {/* border layer — step-end pulse between gold and dark gold */}
+              <div style={{
+                clipPath: OCT8, padding: 2,
+                animation: 'battleBorderPulse 0.9s step-end infinite',
+              }}>
+                <div style={{
+                  background: C.goldBg,
+                  clipPath: OCT8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '14px 24px',
+                }}>
+                  <span style={{
+                    fontSize: 'clamp(8px, 2vw, 12px)',
+                    letterSpacing: 4,
+                    fontFamily: 'var(--font-pixel), monospace',
+                    animation: 'battleTextPulse 0.9s step-end infinite',
+                  }}>
+                    ► BEGIN BATTLE ◄
+                  </span>
+                </div>
+              </div>
+            </div>
           ) : (
-            <div style={{ fontSize: 'clamp(8px, 2.2vw, 13px)', color: C.gold, letterSpacing: 4, animation: 'insertCoin 1.1s step-start infinite' }}>
-              ─ INSERT COIN ─
+            <div style={{ width: '100%', cursor: 'not-allowed' }}>
+              <div style={{ background: C.lockedBorder, clipPath: OCT8, padding: 2, opacity: 0.55 }}>
+                <div style={{
+                  background: C.panel,
+                  clipPath: OCT8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '14px 24px',
+                }}>
+                  <span style={{
+                    fontSize: 'clamp(8px, 2vw, 12px)',
+                    letterSpacing: 4,
+                    color: C.lockedBorder,
+                    fontFamily: 'var(--font-pixel), monospace',
+                  }}>
+                    ► BEGIN BATTLE ◄
+                  </span>
+                </div>
+              </div>
             </div>
           )}
+
         </div>
       </div>
     </>
