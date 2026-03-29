@@ -20,4 +20,4 @@ services:
       - backend
     environment:
       - NEXT_PUBLIC_FLASK_URL=http://localhost:5000
-      - NEXT_PUBLIC_MOCK=true
+      - NEXT_PUBLIC_MOCK=false
