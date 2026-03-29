@@ -70,25 +70,14 @@ export interface BossSpriteHandle {
 }
 
 const BossSprite = forwardRef<BossSpriteHandle, {
-  category: string
+  spriteSet: BossSpriteSet
   flashing: boolean
-  width: number
-  height: number
-}>(({ category, flashing, width, height }, ref) => {
-  const config = BOSS_FRAMES[category] ?? BOSS_FRAMES.bat
-
-  const [frames, setFrames] = useState(config.idle)
+  isShaking: boolean
+}>(({ spriteSet, flashing, isShaking }, ref) => {
   const [frameKey, setFrameKey] = useState(0)
-  const [frameRate, setFrameRate] = useState(100)
   const [offsetX, setOffsetX] = useState(0)
   const [transDash, setTransDash] = useState('none')
   const selfRef = useRef<HTMLDivElement>(null)
-
-  const setAnim = useCallback((f: string[], rate: number) => {
-    setFrames(f)
-    setFrameRate(rate)
-    setFrameKey(k => k + 1)
-  }, [])
 
   useImperativeHandle(ref, () => ({
     triggerAttack(playerRef) {
@@ -101,12 +90,10 @@ const BossSprite = forwardRef<BossSpriteHandle, {
       // Boss is right-side, player is left-side — negative X moves boss toward player
       const dashX = playerRect.right - bossRect.left + 16
 
-      const attackFrames = config.attack ?? config.idle
-
       // 1. Swoop toward player
-      setAnim(attackFrames, 42)
       setTransDash('transform 0.3s ease-in')
       setOffsetX(dashX)
+      setFrameKey(k => k + 1) // Trigger sprite re-key to restart frames
 
       // 2. Return
       setTimeout(() => {
@@ -116,7 +103,6 @@ const BossSprite = forwardRef<BossSpriteHandle, {
 
       // 3. Back to idle
       setTimeout(() => {
-        setAnim(config.idle, 100)
         setTransDash('none')
       }, 700)
     },
@@ -125,21 +111,24 @@ const BossSprite = forwardRef<BossSpriteHandle, {
   return (
     // Outer div: horizontal swoop (translateX)
     <div ref={selfRef} style={{ transform: `translateX(${offsetX}px)`, transition: transDash }}>
-      {/* Inner div: vertical float + filter — kept separate to avoid transform conflicts */}
-      <div style={{
-        filter: flashing
-          ? 'brightness(4) saturate(0)'
-          : 'drop-shadow(0 0 14px #FF333399) drop-shadow(0 0 30px #FF000044)',
-        transition: 'filter 0.1s',
-        animation: 'bossFloat 2s ease-in-out infinite',
-      }}>
-        <AnimatedSprite
-          key={frameKey}
-          framePaths={frames}
-          width={width}
-          height={height}
-          frameRate={frameRate}
-        />
+      {/* Shake wrapper */}
+      <div style={{ animation: isShaking ? getSpriteShakeAnimation(SPRITE_SHAKE_INTENSITY) : 'none' }}>
+        {/* Inner div: vertical float + filter — kept separate to avoid transform conflicts */}
+        <div style={{
+          filter: flashing
+            ? 'brightness(4) saturate(0)'
+            : 'drop-shadow(0 0 14px #FF333399) drop-shadow(0 0 30px #FF000044)',
+          transition: 'filter 0.1s',
+          animation: 'bossFloat 2s ease-in-out infinite',
+        }}>
+          <AnimatedSprite
+            key={frameKey}
+            framePaths={spriteSet.framePaths}
+            width={spriteSet.width}
+            height={spriteSet.height}
+            frameRate={spriteSet.frameRate}
+          />
+        </div>
       </div>
     </div>
   )
@@ -155,6 +144,77 @@ const RARITY_COLOR: Record<ItemRarity, string> = {
   legendary: '#FFD700',
 }
 
+interface BossSpriteSet {
+  id: string
+  framePaths: string[]
+  frameRate: number
+  width: number
+  height: number
+}
+
+type SpriteShakeIntensity = 'light' | 'medium' | 'heavy'
+
+const SCREEN_SHAKE_INTENSITY: 'light' | 'medium' | 'heavy' = 'light'
+const SPRITE_SHAKE_INTENSITY: SpriteShakeIntensity = 'medium'
+
+function getSpriteShakeAnimation(intensity: SpriteShakeIntensity): string {
+  if (intensity === 'light') return 'spriteShakeLight 0.18s ease-in-out'
+  if (intensity === 'heavy') return 'spriteShakeHeavy 0.3s ease-in-out'
+  return 'spriteShakeMedium 0.24s ease-in-out'
+}
+
+function getSpriteShakeDurationMs(intensity: SpriteShakeIntensity): number {
+  if (intensity === 'light') return 180
+  if (intensity === 'heavy') return 300
+  return 240
+}
+
+// Add more boss animation sets here as you create them in /public/images.
+// Example ids: 'slime-idle', 'robot-idle', 'dragon-idle'.
+const BOSS_SPRITE_POOLS: BossSpriteSet[] = [
+  {
+    id: 'bat',
+    framePaths: [
+      '/images/bat/idle_0.png',
+      '/images/bat/idle_1.png',
+      '/images/bat/idle_2.png',
+      '/images/bat/idle_3.png',
+      '/images/bat/idle_4.png',
+      '/images/bat/idle_5.png',
+      '/images/bat/idle_6.png',
+      '/images/bat/idle_7.png',
+      '/images/bat/idle_8.png',
+    ],
+    frameRate: 100,
+    width: 256 * 0.75,
+    height: 256 * 0.75,
+  },
+  {
+    id: 'golem',
+    framePaths: [
+      '/images/golem/golem_0.png',
+      '/images/golem/golem_1.png',
+      '/images/golem/golem_2.png',
+      '/images/golem/golem_3.png',
+    ],
+    frameRate: 200,
+    width: 256 * 0.75,
+    height: 256 * 0.75,
+  },
+  {
+    id: 'demon',
+    framePaths: [
+      '/images/demon/demon0.png',
+      '/images/demon/demon1.png',
+      '/images/demon/demon2.png',
+      '/images/demon/demon3.png',
+    ],
+    frameRate: 150,
+    width: 256,
+    height: 256,
+  }
+]
+
 // ─── Question adapter ─────────────────────────────────────────────────────────
 
 function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
@@ -168,7 +228,7 @@ function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
   let explanations: Record<string, string> | undefined
   if (rawExp && typeof rawExp === 'object') {
     explanations = rawExp as Record<string, string>
-    explanation  = explanations[correct] ?? Object.values(explanations)[0] ?? ''
+    explanation = explanations[correct] ?? Object.values(explanations)[0] ?? ''
   } else {
     explanation = (rawExp as string) ?? `The correct answer is: ${correct}`
   }
@@ -242,22 +302,48 @@ function buildMockFrqQuestion(game: ReturnType<typeof useGame>, index: number): 
 
 // ─── Visual components ────────────────────────────────────────────────────────
 
-function HpBar({ value, max, color }: { value: number; max: number; color: string }) {
+function HpBar({ value, max, color, height = 7, segments = false }: {
+  value: number; max: number; color: string; height?: number; segments?: boolean
+}) {
   const pct = Math.max(0, (value / max) * 100)
   const low = pct < 30
+
+  // dynamic color: cyan/green → yellow → red as HP drops
+  const barColor = low
+    ? '#FF0040'
+    : pct < 60
+      ? '#FFD700'
+      : color
+
   return (
-    <div>
-      <div style={{ height: 7, backgroundColor: '#050505', border: `1px solid ${color}33`, overflow: 'hidden' }}>
+    <div style={{ position: 'relative' }}>
+      <div style={{
+        height, backgroundColor: '#050505',
+        border: `1px solid ${barColor}33`, overflow: 'hidden', position: 'relative',
+      }}>
+        {/* Main fill */}
         <div style={{
-          height: '100%', width: `${pct}%`, backgroundColor: color,
-          boxShadow: `0 0 ${low ? 12 : 5}px ${color}`,
-          transition: 'width 0.4s ease',
+          height: '100%', width: `${pct}%`, backgroundColor: barColor,
+          boxShadow: `0 0 ${low ? 14 : 6}px ${barColor}99`,
+          transition: 'width 0.4s ease, background-color 0.6s ease',
           animation: low ? 'hpPulse 0.5s ease-in-out infinite' : 'none',
         }} />
+        {/* Segment dividers */}
+        {segments && Array.from({ length: 9 }, (_, i) => (
+          <div key={i} style={{
+            position: 'absolute', top: 0, bottom: 0,
+            left: `${(i + 1) * 10}%`,
+            width: 1, backgroundColor: '#00000055',
+            pointerEvents: 'none',
+          }} />
+        ))}
       </div>
-      <div style={{ textAlign: 'right', marginTop: 2 }}>
-        <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#444', fontFamily: 'var(--font-pixel), monospace' }}>
-          {Math.max(0, value)}<span style={{ color: '#222' }}>/{max}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+        <span style={{ fontSize: 'clamp(4px, 0.7vw, 6px)', color: barColor, fontFamily: 'var(--font-pixel), monospace', opacity: 0.7 }}>
+          {Math.max(0, value)}
+        </span>
+        <span style={{ fontSize: 'clamp(4px, 0.7vw, 6px)', color: '#333', fontFamily: 'var(--font-pixel), monospace' }}>
+          {max}
         </span>
       </div>
     </div>
@@ -391,16 +477,25 @@ function CaseOpening({ item, inventoryFull, onCollect }: {
   )
 }
 
-// ─── Outer page ───────────────────────────────────────────────────────────────
+// ─── Outer page: pre-fetch questions, wrap with CombatProvider ────────────────
 
 const MOCK_BOSS = {
-  clusterId: 'mock', name: 'Debug Bot', personality: 'robotic', backstory: 'A test enemy.',
-  opening_monologue: 'Initiating debug sequence!', taunts: {}, sprite_category: 'bat', max_hp: 100,
+  clusterId: 'mock',
+  name: 'Debug Bot',
+  personality: 'robotic',
+  backstory: 'A test enemy.',
+  opening_monologue: 'Initiating debug sequence!',
+  taunts: {},
+  sprite_category: 'bat',
+  max_hp: 100,
 }
+
 const MOCK_CLUSTER = {
-  clusterId: 'mock', clusterName: 'Mock Concepts',
+  clusterId: 'mock',
+  clusterName: 'Mock Concepts',
   concepts: [
     { id: 'c1', name: 'Arrays', summary: 'Lists of items', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
+    { id: 'c2', name: 'Loops', summary: 'Repeat code', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
     { id: 'c2', name: 'Loops', summary: 'Repeat code', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
   ],
 }
@@ -412,7 +507,10 @@ export default function BattlePage() {
   const [savedInventory] = useState<InventoryItem[]>(() => typeof window !== 'undefined' ? loadPlayerInventory() : [])
 
   useEffect(() => {
-    if (!game.currentBoss && process.env.NEXT_PUBLIC_MOCK === 'true') { game.initGame([MOCK_CLUSTER], [MOCK_BOSS]); return }
+    if (!game.currentBoss && process.env.NEXT_PUBLIC_MOCK === 'true') {
+      game.initGame([MOCK_CLUSTER], [MOCK_BOSS])
+      return
+    }
     if (!game.currentBoss) return
     let cancelled = false
     async function load() {
@@ -449,9 +547,34 @@ export default function BattlePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentBoss])
 
-  if (!game.currentBoss) return null
-  if (fetchError) return <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#FF0040' }}>ERROR: Could not load battle questions.</div>
-  if (!questions) return <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#444', letterSpacing: 3, fontSize: 'clamp(6px, 1.2vw, 8px)', animation: 'pulse 1s ease-in-out infinite' }}>PREPARING BATTLE...</div>
+  if (!game.currentBoss) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#777', padding: 24, textAlign: 'center', lineHeight: 1.8 }}>
+        <div>
+          <div>Battle state not initialized yet.</div>
+          <div style={{ marginTop: 8, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#555' }}>
+            NEXT_PUBLIC_MOCK runtime value: {String(process.env.NEXT_PUBLIC_MOCK)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (fetchError) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#FF0040' }}>
+        ERROR: Could not load battle questions.
+      </div>
+    )
+  }
+
+  if (!questions) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#444', letterSpacing: 3, fontSize: 'clamp(6px, 1.2vw, 8px)', animation: 'pulse 1s ease-in-out infinite' }}>
+        PREPARING BATTLE...
+      </div>
+    )
+  }
 
   return (
     <CombatProvider questions={questions} initialInventory={savedInventory} playerMaxHP={PLAYER_MAX_HP_VALUE} bossMaxHP={game.currentBoss.max_hp}>
@@ -470,7 +593,10 @@ function BattleUI() {
   // ── Visual FX state ──
   const [bossFlashing, setBossFlashing] = useState(false)
   const [playerDamaged, setPlayerDamaged] = useState(false)
+  const [bossSpriteShaking, setBossSpriteShaking] = useState(false)
+  const [playerSpriteShaking, setPlayerSpriteShaking] = useState(false)
   const [dmgNums, setDmgNums] = useState<DmgNum[]>([])
+  const [bossSpriteSet, setBossSpriteSet] = useState<BossSpriteSet>(BOSS_SPRITE_POOLS[0])
   const { shakeClass, triggerShake } = useShake()
   const dmgIdRef = useRef(0)
 
@@ -480,6 +606,22 @@ function BattleUI() {
   const particlesRef = useRef<ParticlesHandle>(null)
   const bossAnimRef = useRef<BossSpriteHandle>(null)
   const revealFiredRef = useRef(false)
+
+  useEffect(() => {
+    if (BOSS_SPRITE_POOLS.length === 0) return
+
+    const storageKey = 'last-boss-sprite-set-id'
+    const prevId = typeof window !== 'undefined' ? window.sessionStorage.getItem(storageKey) : null
+    const candidatePools = BOSS_SPRITE_POOLS.filter(pool => pool.id !== prevId)
+    const pools = candidatePools.length > 0 ? candidatePools : BOSS_SPRITE_POOLS
+    const chosen = pools[Math.floor(Math.random() * pools.length)]
+
+    setBossSpriteSet(chosen)
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(storageKey, chosen.id)
+    }
+  }, [game.currentBossIndex])
+
 
   // ── Player animation ──
   const [playerFrames, setPlayerFrames] = useState(IDLE_FRAMES)
@@ -547,23 +689,27 @@ function BattleUI() {
       // Boss impact at arrival (~360ms)
       setTimeout(() => {
         setBossFlashing(true)
+        setBossSpriteShaking(true)
         addDmg(combat.state.bossDamageOnCorrect, '#39FF14', 'boss')
         const r = bossRef.current?.getBoundingClientRect()
         if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#39FF14', '#00f0ff', '#ffffff'], count: 36, speed: 7, gravity: 0.25, size: 5 })
         setTimeout(() => setBossFlashing(false), 300)
       }, 360)
+      setTimeout(() => setBossSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     } else {
       // Boss swoops at player
       bossAnimRef.current?.triggerAttack(playerRef)
       // Player damage effects at boss arrival (~300ms)
       setTimeout(() => {
         setPlayerDamaged(true)
+        setPlayerSpriteShaking(true)
         addDmg(combat.state.playerDamageOnWrong, '#FF0040', 'player')
-        triggerShake({ intensity: 'heavy' })
+        triggerShake({ intensity: SCREEN_SHAKE_INTENSITY })
         const r = playerRef.current?.getBoundingClientRect()
         if (r) particlesRef.current?.burst(r.left + r.width / 2, r.top + r.height / 2, { color: ['#FF0040', '#ff6644', '#ffaa00'], count: 28, speed: 5, angle: -Math.PI / 2, spread: Math.PI, gravity: 0.3, size: 4 })
         setTimeout(() => setPlayerDamaged(false), 500)
       }, 300)
+      setTimeout(() => setPlayerSpriteShaking(false), getSpriteShakeDurationMs(SPRITE_SHAKE_INTENSITY))
     }
 
     const t = setTimeout(() => combat.revealComplete(), 1500)
@@ -618,17 +764,23 @@ function BattleUI() {
   const { state } = combat
   const q = state.currentQuestion
   const choices = q?.choices.filter(c => !state.eliminatedChoices.includes(c.id)) ?? []
-  const recordedIndexRef = useRef<number | null>(null)
+  const recordedQuestionIndexRef = useRef<number | null>(null)
 
   const recordQuestionResult = (choiceId: string) => {
-    if (!q || recordedIndexRef.current === state.questionIndex) return
-    recordedIndexRef.current = state.questionIndex
+    if (!q) return
+    if (recordedQuestionIndexRef.current === state.questionIndex) return
+    recordedQuestionIndexRef.current = state.questionIndex
+
     const answerText = q.choices.find(c => c.id === choiceId)?.text ?? choiceId
     const correct = choiceId === q.correctAnswerId
     const shieldActive = state.activeEffects.some(e => e.type === 'shield')
+
     game.addQuestionResult({
-      question: q.question_text, playerAnswer: answerText, correct,
-      explanation: q.explanation, conceptName: q.concept,
+      question: q.question_text,
+      playerAnswer: answerText,
+      correct,
+      explanation: q.explanation,
+      conceptName: q.concept,
       damage: correct ? state.bossDamageOnCorrect : 0,
       playerDamage: correct ? 0 : (shieldActive ? 0 : state.playerDamageOnWrong),
     })
@@ -647,8 +799,8 @@ function BattleUI() {
     try {
       const result = await judgeAnswer(frqText, q.question_text, q.correctAnswerId, game)
       setFrqResult({ explanation: result.explanation, bossDialogue: result.boss_dialogue })
-      if (recordedIndexRef.current !== state.questionIndex) {
-        recordedIndexRef.current = state.questionIndex
+      if (recordedQuestionIndexRef.current !== state.questionIndex) {
+        recordedQuestionIndexRef.current = state.questionIndex
         const shieldActive = state.activeEffects.some(e => e.type === 'shield')
         game.addQuestionResult({
           question: q.question_text, playerAnswer: frqText, correct: result.is_correct,
@@ -687,7 +839,6 @@ function BattleUI() {
   const explanationText = (isFrq && frqResult?.explanation) ? frqResult.explanation : q?.explanation
 
   const inventorySlots = state.inventory.slice(0, MAX_INVENTORY)
-  const bossCategory = game.currentBoss.sprite_category ?? 'bat'
 
   return (
     <>
@@ -702,10 +853,35 @@ function BattleUI() {
         @keyframes scanlines   { 0%{background-position:0 0} 100%{background-position:0 4px} }
         @keyframes fadeSlideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideDown   { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes spriteShakeLight {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-2px, 0); }
+          40%  { transform: translate(2px, 0); }
+          60%  { transform: translate(-1px, 0); }
+          80%  { transform: translate(1px, 0); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes spriteShakeMedium {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-4px, 0); }
+          40%  { transform: translate(4px, 0); }
+          60%  { transform: translate(-3px, 0); }
+          80%  { transform: translate(3px, 0); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes spriteShakeHeavy {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-7px, 0); }
+          40%  { transform: translate(7px, 0); }
+          60%  { transform: translate(-5px, 0); }
+          80%  { transform: translate(5px, 0); }
+          100% { transform: translate(0, 0); }
+        }
         @keyframes blink       { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes choicePulse { 0%,100%{box-shadow:0 0 0 transparent} 50%{box-shadow:0 0 10px #00f0ff44} }
         @keyframes timerPulse  { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes slotPulse   { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        @keyframes timerBgPulse { 0%,100%{background-color:rgba(255,0,40,0.02)} 50%{background-color:rgba(255,0,40,0.07)} }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: #FF004033; }
       `}</style>
@@ -736,30 +912,42 @@ function BattleUI() {
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', background: 'linear-gradient(to bottom, transparent, #0a0015aa)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: '28%', left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #6633ff33 25%, #9966ff55 50%, #6633ff33 75%, transparent)' }} />
 
-          {/* Boss HP */}
-          <div style={{ position: 'absolute', top: 12, left: 14, backgroundColor: '#060008', border: '1px solid #FF004033', padding: '9px 13px', width: 200, boxShadow: '0 0 24px #FF00401a, inset 0 0 12px #0a000a', zIndex: 5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF3333', letterSpacing: 2, textShadow: '0 0 8px #FF333388', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{game.currentBoss.name.toUpperCase()}</span>
-              {bossHPPct < 30 && <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#FFD700', animation: 'blink 0.55s infinite', letterSpacing: 1, flexShrink: 0 }}>LOW HP</span>}
+          {/* ── Player HP — top left (Elden Ring style) ── */}
+          <div style={{
+            position: 'absolute', top: 14, left: 14, zIndex: 5,
+            width: 220,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+              <span style={{
+                fontSize: 'clamp(8px, 1vw, 11px)', color: '#00f0ff',
+                letterSpacing: 2, textShadow: '0 0 8px #00f0ff66',
+                fontFamily: 'var(--font-pixel), monospace',
+              }}>PLAYER</span>
+              {playerHPPct < 30 && (
+                <span style={{
+                  fontSize: 'clamp(7px, 0.8vw, 9px)', color: '#FF0040',
+                  animation: 'blink 0.55s infinite', letterSpacing: 1,
+                  fontFamily: 'var(--font-pixel), monospace',
+                }}>DANGER</span>
+              )}
             </div>
-            <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" />
+            <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" height={14} segments />
           </div>
 
-          {/* Score */}
+          {/* Score — top right */}
           <div style={{ position: 'absolute', top: 12, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px #FFD70055' }}>{game.score.toLocaleString()} <span style={{ color: '#443300' }}>PTS</span></div>
             <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#555', letterSpacing: 2 }}>BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#2a2a2a' }}>/{game.totalBosses}</span></div>
             <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#333', letterSpacing: 2 }}>STREAK <span style={{ color: state.correctStreak > 0 ? '#FFD700' : '#555' }}>{state.correctStreak}</span></div>
           </div>
 
-          {/* Boss sprite — BossSprite component (supports swoop attack + extensible) */}
+          {/* Boss sprite — unified component handling idle, swoop, and shake */}
           <div ref={bossRef} style={{ position: 'absolute', right: '19%', bottom: '20%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, zIndex: 5 }}>
             <BossSprite
               ref={bossAnimRef}
-              category={bossCategory}
+              spriteSet={bossSpriteSet}
               flashing={bossFlashing}
-              width={256 * 0.75}
-              height={256 * 0.75}
+              isShaking={bossSpriteShaking}
             />
             <div style={{ width: 100, height: 8, borderRadius: '50%', background: 'radial-gradient(ellipse, #1802025d 0%, transparent 70%)' }} />
           </div>
@@ -840,18 +1028,42 @@ function BattleUI() {
             })}
           </div>
 
-          {/* Player HP */}
-          <div style={{ position: 'absolute', bottom: 10, right: 14, backgroundColor: '#000d10', border: '1px solid #00f0ff28', padding: '9px 13px', width: 200, boxShadow: '0 0 24px #00f0ff18, inset 0 0 12px #000d10', zIndex: 5 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#00f0ff', letterSpacing: 2, textShadow: '0 0 8px #00f0ff66' }}>PLAYER</span>
-              {playerHPPct < 30 && <span style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#FF0040', animation: 'blink 0.55s infinite', letterSpacing: 1 }}>DANGER</span>}
+          {/* ── Boss HP — bottom center of scene (Elden Ring style) ── */}
+          <div style={{
+            position: 'absolute', bottom: 14, left: '50%',
+            transform: 'translateX(-50%)',
+            width: '55%', zIndex: 6,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+              <span style={{
+                fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#FF3333',
+                letterSpacing: 3, textShadow: '0 0 10px #FF333388',
+                fontFamily: 'var(--font-pixel), monospace',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%',
+              }}>{game.currentBoss.name.toUpperCase()}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {bossHPPct < 30 && (
+                  <span style={{
+                    fontSize: 'clamp(7px, 0.8vw, 9px)', color: '#FFD700',
+                    animation: 'blink 0.55s infinite', letterSpacing: 1,
+                    fontFamily: 'var(--font-pixel), monospace',
+                  }}>ENRAGED</span>
+                )}
+              </div>
             </div>
-            <HpBar value={state.playerHP} max={state.playerMaxHP} color="#00f0ff" />
+            <HpBar value={state.bossHP} max={state.bossMaxHP} color="#FF0040" height={18} segments />
           </div>
         </div>
 
         {/* ═══ BATTLE MENU ═══ */}
-        <div style={{ position: 'relative', zIndex: 2, flex: 1, minHeight: 0, borderTop: '1px solid #ffffff14', backgroundColor: '#05050d', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{
+          position: 'relative', zIndex: 2, flex: 1, minHeight: 0,
+          borderTop: '2px solid #00f0ff44',
+          boxShadow: '0 -4px 16px #00f0ff18',
+          backgroundColor: timerLow ? undefined : '#05050d',
+          animation: timerLow ? 'timerBgPulse 0.8s ease-in-out infinite' : 'none',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
 
           {/* Timer bar — hidden during explanation */}
           <div style={{ height: 3, flexShrink: 0, backgroundColor: '#0a0a0a' }}>
@@ -981,57 +1193,33 @@ function BattleUI() {
                         } else if (isDis) { bg = '#080808'; border = '#111'; color = '#333' }
 
                         return (
-                          <div key={choice.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <button
-                              onClick={() => handleAnswer(choice.id)}
-                              disabled={isDis}
-                              style={{
-                                width: '100%',
-                                fontFamily: 'var(--font-pixel), monospace',
-                                fontSize: 'clamp(11px, 1.3vw, 14px)',
-                                letterSpacing: 1, color, backgroundColor: bg,
-                                border: `1px solid ${border}`,
-                                padding: '14px 16px', textAlign: 'left',
-                                cursor: isDis ? 'default' : 'pointer',
-                                transition: 'all 0.15s', lineHeight: 1.7,
-                                animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
-                              }}
-                              onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
-                              onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
-                            >
-                              {choice.id}) {choice.text}
-                            </button>
-
-                            {/* Per-choice explanation dropdown directly below the button */}
-                            {hasExp && (
-                              <div style={{ border: `1px solid ${border}`, backgroundColor: bg, marginTop: -4 }}>
-                                <button
-                                  onClick={() => setOpenExps(prev =>
-                                    prev.includes(choice.id)
-                                      ? prev.filter(id => id !== choice.id)
-                                      : [...prev, choice.id]
-                                  )}
-                                  style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '6px 12px', background: 'none', border: 'none',
-                                    cursor: 'pointer', fontFamily: 'var(--font-pixel), monospace',
-                                  }}
-                                >
-                                  <span style={{ fontSize: 'clamp(6px, 0.8vw, 8px)', color, letterSpacing: 1 }}>WHY?</span>
-                                  <span style={{ fontSize: 8, color }}>{isOpen ? '▲' : '▼'}</span>
-                                </button>
-                                {isOpen && (
-                                  <div style={{ padding: '0 12px 10px 12px', fontSize: 'clamp(7px, 0.9vw, 10px)', color: '#99bbbb', lineHeight: 1.6 }}>
-                                    {q.explanations![choice.id]}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            key={choice.id}
+                            onClick={() => handleAnswer(choice.id)}
+                            disabled={isDis}
+                            style={{
+                              fontFamily: 'var(--font-pixel), monospace',
+                              fontSize: 'clamp(6px, 1vw, 8px)',
+                              letterSpacing: 1,
+                              color, backgroundColor: bg,
+                              border: `1px solid ${border}`,
+                              padding: '9px 12px',
+                              textAlign: 'left',
+                              cursor: isDis ? 'default' : 'pointer',
+                              transition: 'all 0.15s',
+                              lineHeight: 1.7,
+                              animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
+                            }}
+                            onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
+                            onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
+                          >
+                            {choice.id}) {choice.text}
+                          </button>
                         )
                       })}
                     </div>
                   )}
+
                 </div>
 
                 {/* Explanation strip — slides in after answering */}
