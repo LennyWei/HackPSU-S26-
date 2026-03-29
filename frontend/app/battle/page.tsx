@@ -750,8 +750,8 @@ function BattleUI() {
     try {
       const result = await judgeAnswer(frqText, q.question_text, q.correctAnswerId, game)
       setFrqResult({ explanation: result.explanation, bossDialogue: result.boss_dialogue })
-      if (recordedIndexRef.current !== state.questionIndex) {
-        recordedIndexRef.current = state.questionIndex
+      if (recordedQuestionIndexRef.current !== state.questionIndex) {
+        recordedQuestionIndexRef.current = state.questionIndex
         const shieldActive = state.activeEffects.some(e => e.type === 'shield')
         game.addQuestionResult({
           question: q.question_text, playerAnswer: frqText, correct: result.is_correct,
@@ -1129,6 +1129,8 @@ function BattleUI() {
                     )
                   })}
                 </div>
+              )}
+
                 </div>
 
                 {/* Explanation strip — slides in after answering */}
