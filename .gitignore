@@ -10,6 +10,7 @@
 *.key
 *.p12
 *.pfx
+backend/.env
 
 # ========================
 # Next.js
