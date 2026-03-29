@@ -43,7 +43,7 @@ const ATK2_FRAMES = ['/images/player/player6.png', '/images/player/player7.png']
 // `attack` is optional — if absent the idle frames play at high speed during the swoop.
 
 interface BossSpriteConfig {
-  idle:    string[]
+  idle: string[]
   attack?: string[]   // optional dedicated attack frames
 }
 
@@ -70,18 +70,18 @@ export interface BossSpriteHandle {
 }
 
 const BossSprite = forwardRef<BossSpriteHandle, {
-  category:  string
-  flashing:  boolean
-  width:     number
-  height:    number
+  category: string
+  flashing: boolean
+  width: number
+  height: number
 }>(({ category, flashing, width, height }, ref) => {
   const config = BOSS_FRAMES[category] ?? BOSS_FRAMES.bat
 
-  const [frames,     setFrames]     = useState(config.idle)
-  const [frameKey,   setFrameKey]   = useState(0)
-  const [frameRate,  setFrameRate]  = useState(100)
-  const [offsetX,    setOffsetX]    = useState(0)
-  const [transDash,  setTransDash]  = useState('none')
+  const [frames, setFrames] = useState(config.idle)
+  const [frameKey, setFrameKey] = useState(0)
+  const [frameRate, setFrameRate] = useState(100)
+  const [offsetX, setOffsetX] = useState(0)
+  const [transDash, setTransDash] = useState('none')
   const selfRef = useRef<HTMLDivElement>(null)
 
   const setAnim = useCallback((f: string[], rate: number) => {
@@ -92,11 +92,11 @@ const BossSprite = forwardRef<BossSpriteHandle, {
 
   useImperativeHandle(ref, () => ({
     triggerAttack(playerRef) {
-      const bossEl   = selfRef.current
+      const bossEl = selfRef.current
       const playerEl = playerRef.current
       if (!bossEl || !playerEl) return
 
-      const bossRect   = bossEl.getBoundingClientRect()
+      const bossRect = bossEl.getBoundingClientRect()
       const playerRect = playerEl.getBoundingClientRect()
       // Boss is right-side, player is left-side — negative X moves boss toward player
       const dashX = playerRect.right - bossRect.left + 16
@@ -149,9 +149,9 @@ BossSprite.displayName = 'BossSprite'
 // ─── Rarity helpers ───────────────────────────────────────────────────────────
 
 const RARITY_COLOR: Record<ItemRarity, string> = {
-  basic:     '#9999aa',
-  rare:      '#4477ff',
-  epic:      '#aa44ff',
+  basic: '#9999aa',
+  rare: '#4477ff',
+  epic: '#aa44ff',
   legendary: '#FFD700',
 }
 
@@ -162,29 +162,29 @@ function adaptQuestion(raw: Record<string, unknown>): CombatQuestion {
   const choices = options.map(opt => ({ id: opt.id, text: opt.text }))
   const correct = (raw.correct_answer as string) ?? ''
   return {
-    id:              (raw.id as string) ?? `q_${Math.random().toString(36).slice(2)}`,
-    difficulty:      (raw.difficulty as number) ?? 5,
-    question_text:   (raw.question_text as string) ?? '',
-    dialogue:        (raw.dialogue as string) ?? '',
+    id: (raw.id as string) ?? `q_${Math.random().toString(36).slice(2)}`,
+    difficulty: (raw.difficulty as number) ?? 5,
+    question_text: (raw.question_text as string) ?? '',
+    dialogue: (raw.dialogue as string) ?? '',
     choices,
     correctAnswerId: correct,
-    concept:         (raw.concept as string) ?? '',
-    explanation:     (raw.explanation as string) ?? `The correct answer is: ${correct}`,
-    wrong_taunts:    (raw.wrong_taunts as Array<{ answer: string; taunt: string }>) ?? [],
-    question_type:   (raw.question_type as string) ?? 'mcq',
+    concept: (raw.concept as string) ?? '',
+    explanation: (raw.explanation as string) ?? `The correct answer is: ${correct}`,
+    wrong_taunts: (raw.wrong_taunts as Array<{ answer: string; taunt: string }>) ?? [],
+    question_type: (raw.question_type as string) ?? 'mcq',
   }
 }
 
 function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): CombatQuestion {
   const cluster = game.currentCluster
-  const boss    = game.currentBoss
+  const boss = game.currentBoss
   const concept = cluster?.concepts[index % Math.max(cluster?.concepts.length ?? 1, 1)]
-  const name    = concept?.name ?? 'a key concept'
+  const name = concept?.name ?? 'a key concept'
   return {
-    id:              `mock_q_${index}`,
-    difficulty:      5,
-    question_text:   `Which statement best describes ${name}?`,
-    dialogue:        `${boss?.name ?? 'Boss'}: "Let's see if you truly understand ${name}!"`,
+    id: `mock_q_${index}`,
+    difficulty: 5,
+    question_text: `Which statement best describes ${name}?`,
+    dialogue: `${boss?.name ?? 'Boss'}: "Let's see if you truly understand ${name}!"`,
     choices: [
       { id: 'A', text: `${name} is the most important element of this topic` },
       { id: 'B', text: 'This concept has no relevance here' },
@@ -192,8 +192,8 @@ function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): Com
       { id: 'D', text: 'Neither A nor B is accurate' },
     ],
     correctAnswerId: 'A',
-    concept:         name,
-    explanation:     `${name} is indeed central to ${cluster?.clusterName ?? 'this topic'}.`,
+    concept: name,
+    explanation: `${name} is indeed central to ${cluster?.clusterName ?? 'this topic'}.`,
     wrong_taunts: [
       { answer: 'B', taunt: `${name} is not irrelevant — you should study harder!` },
       { answer: 'C', taunt: `Both equally valid? Not even close, challenger.` },
@@ -204,20 +204,20 @@ function buildMockQuestion(game: ReturnType<typeof useGame>, index: number): Com
 
 function buildMockFrqQuestion(game: ReturnType<typeof useGame>, index: number): CombatQuestion {
   const cluster = game.currentCluster
-  const boss    = game.currentBoss
+  const boss = game.currentBoss
   const concept = cluster?.concepts[index % Math.max(cluster?.concepts.length ?? 1, 1)]
-  const name    = concept?.name ?? 'a key concept'
+  const name = concept?.name ?? 'a key concept'
   return {
-    id:              `mock_frq_${index}`,
-    difficulty:      5,
-    question_type:   'free_response',
-    question_text:   `In your own words, explain what ${name} is and why it matters in the context of ${cluster?.clusterName ?? 'this topic'}.`,
-    dialogue:        `${boss?.name ?? 'Boss'}: "Words are your only weapon now. Explain ${name} — or suffer the consequences!"`,
-    choices:         [],
+    id: `mock_frq_${index}`,
+    difficulty: 5,
+    question_type: 'free_response',
+    question_text: `In your own words, explain what ${name} is and why it matters in the context of ${cluster?.clusterName ?? 'this topic'}.`,
+    dialogue: `${boss?.name ?? 'Boss'}: "Words are your only weapon now. Explain ${name} — or suffer the consequences!"`,
+    choices: [],
     correctAnswerId: `${name} is a core concept within ${cluster?.clusterName ?? 'this topic'}. A strong answer describes what it is, how it works, and why it is significant.`,
-    concept:         name,
-    explanation:     `A complete answer covers the definition of ${name}, its mechanism or role, and its importance to ${cluster?.clusterName ?? 'this topic'}.`,
-    wrong_taunts:    [],
+    concept: name,
+    explanation: `A complete answer covers the definition of ${name}, its mechanism or role, and its importance to ${cluster?.clusterName ?? 'this topic'}.`,
+    wrong_taunts: [],
   }
 }
 
@@ -248,7 +248,7 @@ function HpBar({ value, max, color }: { value: number; max: number; color: strin
 interface DmgNum { id: number; value: number; color: string; side: 'boss' | 'player' }
 
 function DamageNumber({ dmg, bossRef, playerRef }: { dmg: DmgNum; bossRef: React.RefObject<HTMLDivElement | null>; playerRef: React.RefObject<HTMLDivElement | null> }) {
-  const ref  = dmg.side === 'boss' ? bossRef : playerRef
+  const ref = dmg.side === 'boss' ? bossRef : playerRef
   const rect = ref.current?.getBoundingClientRect()
   if (!rect) return null
   return (
@@ -269,9 +269,9 @@ function DamageNumber({ dmg, bossRef, playerRef }: { dmg: DmgNum; bossRef: React
 // ─── CaseOpening ─────────────────────────────────────────────────────────────
 
 function CaseOpening({ item, inventoryFull, onCollect }: {
-  item:          InventoryItem
+  item: InventoryItem
   inventoryFull: boolean
-  onCollect:     () => void
+  onCollect: () => void
 }) {
   const ITEM_W = 88, ITEM_GAP = 8, ITEM_FULL = ITEM_W + ITEM_GAP
   const CONTAINER_W = 580, WINNER_IDX = 42, TOTAL = 58
@@ -280,7 +280,7 @@ function CaseOpening({ item, inventoryFull, onCollect }: {
     const arr: InventoryItem[] = []
     for (let i = 0; i < TOTAL; i++) arr.push(i === WINNER_IDX ? item : selectRandomItem())
     return arr
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const reelRef = useRef<HTMLDivElement>(null)
@@ -290,12 +290,12 @@ function CaseOpening({ item, inventoryFull, onCollect }: {
     const el = reelRef.current
     if (!el) return
     el.style.transition = 'none'
-    el.style.transform  = 'translateX(0px)'
+    el.style.transform = 'translateX(0px)'
     void el.offsetHeight
     const finalX = -(WINNER_IDX * ITEM_FULL - CONTAINER_W / 2 + ITEM_FULL / 2)
     const t1 = setTimeout(() => {
       el.style.transition = `transform 5.5s cubic-bezier(0.08, 0.82, 0.17, 1.0)`
-      el.style.transform  = `translateX(${finalX}px)`
+      el.style.transform = `translateX(${finalX}px)`
     }, 200)
     const t2 = setTimeout(() => setRevealed(true), 6000)
     return () => { clearTimeout(t1); clearTimeout(t2) }
@@ -382,13 +382,13 @@ const MOCK_CLUSTER = {
   clusterId: 'mock', clusterName: 'Mock Concepts',
   concepts: [
     { id: 'c1', name: 'Arrays', summary: 'Lists of items', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
-    { id: 'c2', name: 'Loops',  summary: 'Repeat code',   difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
+    { id: 'c2', name: 'Loops', summary: 'Repeat code', difficulty: 'basic' as const, related_concepts: [], has_diagram: false },
   ],
 }
 
 export default function BattlePage() {
   const game = useGame()
-  const [questions, setQuestions]   = useState<CombatQuestion[] | null>(null)
+  const [questions, setQuestions] = useState<CombatQuestion[] | null>(null)
   const [fetchError, setFetchError] = useState(false)
   const [savedInventory] = useState<InventoryItem[]>(() => typeof window !== 'undefined' ? loadPlayerInventory() : [])
 
@@ -427,12 +427,12 @@ export default function BattlePage() {
     }
     load()
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentBoss])
 
   if (!game.currentBoss) return null
   if (fetchError) return <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#FF0040' }}>ERROR: Could not load battle questions.</div>
-  if (!questions)  return <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#444', letterSpacing: 3, fontSize: 'clamp(6px, 1.2vw, 8px)', animation: 'pulse 1s ease-in-out infinite' }}>PREPARING BATTLE...</div>
+  if (!questions) return <div style={{ minHeight: '100vh', backgroundColor: '#03030a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-pixel), monospace', color: '#444', letterSpacing: 3, fontSize: 'clamp(6px, 1.2vw, 8px)', animation: 'pulse 1s ease-in-out infinite' }}>PREPARING BATTLE...</div>
 
   return (
     <CombatProvider questions={questions} initialInventory={savedInventory} playerMaxHP={PLAYER_MAX_HP_VALUE} bossMaxHP={game.currentBoss.max_hp}>
@@ -444,40 +444,40 @@ export default function BattlePage() {
 // ─── BattleUI ─────────────────────────────────────────────────────────────────
 
 function BattleUI() {
-  const router  = useRouter()
-  const game    = useGame()
-  const combat  = useCombatContext()
+  const router = useRouter()
+  const game = useGame()
+  const combat = useCombatContext()
 
   // ── Visual FX state ──
-  const [bossFlashing,  setBossFlashing]  = useState(false)
+  const [bossFlashing, setBossFlashing] = useState(false)
   const [playerDamaged, setPlayerDamaged] = useState(false)
-  const [dmgNums,       setDmgNums]       = useState<DmgNum[]>([])
+  const [dmgNums, setDmgNums] = useState<DmgNum[]>([])
   const { shakeClass, triggerShake } = useShake()
   const dmgIdRef = useRef(0)
 
   // ── Refs ──
-  const bossRef        = useRef<HTMLDivElement>(null)
-  const playerRef      = useRef<HTMLDivElement>(null)
-  const particlesRef   = useRef<ParticlesHandle>(null)
-  const bossAnimRef    = useRef<BossSpriteHandle>(null)
+  const bossRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<HTMLDivElement>(null)
+  const particlesRef = useRef<ParticlesHandle>(null)
+  const bossAnimRef = useRef<BossSpriteHandle>(null)
   const revealFiredRef = useRef(false)
 
   // ── Player animation ──
-  const [playerFrames,     setPlayerFrames]     = useState(IDLE_FRAMES)
-  const [playerFrameKey,   setPlayerFrameKey]   = useState(0)
-  const [playerFrameRate,  setPlayerFrameRate]  = useState(100)
-  const [playerX,          setPlayerX]          = useState(0)
+  const [playerFrames, setPlayerFrames] = useState(IDLE_FRAMES)
+  const [playerFrameKey, setPlayerFrameKey] = useState(0)
+  const [playerFrameRate, setPlayerFrameRate] = useState(100)
+  const [playerX, setPlayerX] = useState(0)
   const [playerTransStyle, setPlayerTransStyle] = useState('none')
-  const [playerFlipped,    setPlayerFlipped]    = useState(false)
+  const [playerFlipped, setPlayerFlipped] = useState(false)
   const attackVariantRef = useRef<1 | 2>(1)
 
   // ── Item slot hover ──
   const [hoveredSlot, setHoveredSlot] = useState<number | null>(null)
 
   // ── Free-response state ──
-  const [frqText,     setFrqText]     = useState('')
-  const [judgingFrq,  setJudgingFrq]  = useState(false)
-  const [frqResult,   setFrqResult]   = useState<{ explanation: string; bossDialogue: string } | null>(null)
+  const [frqText, setFrqText] = useState('')
+  const [judgingFrq, setJudgingFrq] = useState(false)
+  const [frqResult, setFrqResult] = useState<{ explanation: string; bossDialogue: string } | null>(null)
 
   // ── Timeout damage detection ──
   const prevPlayerHPRef = useRef<number | null>(null)
@@ -489,10 +489,10 @@ function BattleUI() {
   }, [])
 
   const triggerPlayerAttack = useCallback(() => {
-    const bossEl   = bossRef.current
+    const bossEl = bossRef.current
     const playerEl = playerRef.current
     if (!bossEl || !playerEl) return
-    const bossRect   = bossEl.getBoundingClientRect()
+    const bossRect = bossEl.getBoundingClientRect()
     const playerRect = playerEl.getBoundingClientRect()
     const dashX = bossRect.left + bossRect.width * 0.2 - playerRect.right
     const v = attackVariantRef.current
@@ -546,7 +546,7 @@ function BattleUI() {
 
     const t = setTimeout(() => combat.revealComplete(), 1500)
     return () => clearTimeout(t)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combat.state.phase])
 
   // ── Timeout damage detection: boss swoops when timer runs out ──
@@ -567,7 +567,7 @@ function BattleUI() {
         }, 300)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combat.state.playerHP])
 
   // ── GAME_OVER: navigate ──
@@ -581,7 +581,7 @@ function BattleUI() {
     } else {
       router.push('/result?outcome=death')
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combat.state.phase])
 
   // ── Reset FRQ state when question changes ──
@@ -593,15 +593,15 @@ function BattleUI() {
   if (!game.currentBoss) return null
 
   const { state } = combat
-  const q         = state.currentQuestion
-  const choices   = q?.choices.filter(c => !state.eliminatedChoices.includes(c.id)) ?? []
+  const q = state.currentQuestion
+  const choices = q?.choices.filter(c => !state.eliminatedChoices.includes(c.id)) ?? []
   const recordedIndexRef = useRef<number | null>(null)
 
   const recordQuestionResult = (choiceId: string) => {
     if (!q || recordedIndexRef.current === state.questionIndex) return
     recordedIndexRef.current = state.questionIndex
-    const answerText   = q.choices.find(c => c.id === choiceId)?.text ?? choiceId
-    const correct      = choiceId === q.correctAnswerId
+    const answerText = q.choices.find(c => c.id === choiceId)?.text ?? choiceId
+    const correct = choiceId === q.correctAnswerId
     const shieldActive = state.activeEffects.some(e => e.type === 'shield')
     game.addQuestionResult({
       question: q.question_text, playerAnswer: answerText, correct,
@@ -644,15 +644,15 @@ function BattleUI() {
     }
   }
 
-  const isActive      = state.phase === PHASES.ACTIVE
-  const isReveal      = state.phase === PHASES.REVEAL
+  const isActive = state.phase === PHASES.ACTIVE
+  const isReveal = state.phase === PHASES.REVEAL
   const isExplanation = state.phase === PHASES.EXPLANATION
-  const isLoading     = state.phase === PHASES.LOADING
+  const isLoading = state.phase === PHASES.LOADING
 
-  const bossHPPct   = (state.bossHP   / state.bossMaxHP)   * 100
+  const bossHPPct = (state.bossHP / state.bossMaxHP) * 100
   const playerHPPct = (state.playerHP / state.playerMaxHP) * 100
-  const timerPct    = state.totalTime > 0 ? (state.timeRemaining / state.totalTime) * 100 : 0
-  const timerLow    = timerPct < 25
+  const timerPct = state.totalTime > 0 ? (state.timeRemaining / state.totalTime) * 100 : 0
+  const timerLow = timerPct < 25
 
   const isFrq = q?.question_type === 'free_response'
 
@@ -664,7 +664,7 @@ function BattleUI() {
   const explanationText = (isFrq && frqResult?.explanation) ? frqResult.explanation : q?.explanation
 
   const inventorySlots = state.inventory.slice(0, MAX_INVENTORY)
-  const bossCategory   = game.currentBoss.sprite_category ?? 'bat'
+  const bossCategory = game.currentBoss.sprite_category ?? 'bat'
 
   return (
     <>
@@ -764,12 +764,12 @@ function BattleUI() {
           {/* Item slots — bottom-left */}
           <div style={{ position: 'absolute', bottom: 10, left: 14, display: 'flex', gap: 6, zIndex: 5 }}>
             {Array.from({ length: MAX_INVENTORY }).map((_, slotIdx) => {
-              const item    = inventorySlots[slotIdx]
+              const item = inventorySlots[slotIdx]
               const MCQ_ONLY_EFFECTS = ['eliminate_wrong', 'eliminate_two', 'reveal_answer']
               const isMcqOnly = !!item && MCQ_ONLY_EFFECTS.includes(item.effect)
-              const canUse  = isActive && !!item && !(isFrq && isMcqOnly)
+              const canUse = isActive && !!item && !(isFrq && isMcqOnly)
               const isHover = hoveredSlot === slotIdx
-              const c       = item ? RARITY_COLOR[item.rarity] : '#222'
+              const c = item ? RARITY_COLOR[item.rarity] : '#222'
               return (
                 <div
                   key={slotIdx}
@@ -845,23 +845,30 @@ function BattleUI() {
           <div style={{ height: 2, flexShrink: 0, background: 'linear-gradient(90deg, transparent, #FF004044 25%, #9933ff55 50%, #00f0ff44 75%, transparent)' }} />
 
           {/* Dialogue */}
-          <div style={{ padding: '10px 18px 8px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 64 }}>
-            <div style={{ fontSize: 'clamp(4px, 0.75vw, 5px)', color: '#FF004044', letterSpacing: 3, marginBottom: 5, textTransform: 'uppercase' }}>
+          <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 80 }}>
+            <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#FF004066', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
               {game.currentBoss.name}:
             </div>
-            <p style={{ margin: 0, fontSize: 'clamp(7px, 1.2vw, 9px)', color: '#cccccc', lineHeight: 2 }}>
+            <p style={{
+              margin: 0,
+              fontSize: 'clamp(12px, 1.5vw, 16px)',
+              color: (isReveal && !state.isCorrect) ? '#FF7755' : '#dddddd',
+              lineHeight: 1.9,
+              textShadow: (isReveal && !state.isCorrect) ? '0 0 12px #FF440022' : 'none',
+              letterSpacing: 0.5,
+            }}>
               {isLoading ? <span style={{ color: '#2a2a2a', animation: 'blink 0.8s infinite', display: 'inline-block' }}>▋</span> : dialogue}
               {isActive && <span style={{ animation: 'blink 0.6s infinite', color: '#FF3333', marginLeft: 2 }}>▋</span>}
             </p>
-            {(isReveal || isExplanation) && state.isCorrect === true  && <div style={{ position: 'absolute', top: 10, right: 18, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>}
-            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 10, right: 18, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>}
+            {(isReveal || isExplanation) && state.isCorrect === true && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>}
+            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>}
           </div>
 
           {/* Content */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {isLoading && (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(5px, 0.9vw, 6px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
                 ENEMY IS CHARGING...
               </div>
             )}
@@ -874,7 +881,7 @@ function BattleUI() {
                 <div style={{ flex: 1, minHeight: 0, padding: '10px 18px 8px', display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', overflow: 'hidden' }}>
 
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 'clamp(6px, 1.1vw, 8px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
+                    <p style={{ margin: 0, fontSize: 'clamp(13px, 1.6vw, 18px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
                       {q.question_text}
                     </p>
                   </div>
@@ -909,7 +916,7 @@ function BattleUI() {
                               opacity: judgingFrq ? 0.5 : 1,
                             }}
                             onFocus={e => { e.currentTarget.style.borderColor = '#00f0ff77' }}
-                            onBlur={e  => { e.currentTarget.style.borderColor = '#00f0ff33' }}
+                            onBlur={e => { e.currentTarget.style.borderColor = '#00f0ff33' }}
                           />
                           <button
                             onClick={handleFrqSubmit}
@@ -937,16 +944,16 @@ function BattleUI() {
                     /* ── Multiple choice grid ── */
                     <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'center' }}>
                       {choices.map(choice => {
-                        const isSel  = state.selectedAnswer === choice.id
+                        const isSel = state.selectedAnswer === choice.id
                         const isCorr = choice.id === q.correctAnswerId
-                        const isDis  = !isActive
+                        const isDis = !isActive
 
                         let bg = '#050510', border = '#00f0ff33', color = '#00f0ff'
                         if (isReveal || isExplanation) {
-                          if (isCorr)      { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
-                          else if (isSel)  { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
-                          else             { bg = '#080808'; border = '#111';    color = '#333'    }
-                        } else if (isDis)  { bg = '#080808'; border = '#111';    color = '#333'    }
+                          if (isCorr) { bg = '#003310'; border = '#39FF14'; color = '#39FF14' }
+                          else if (isSel) { bg = '#200005'; border = '#FF0040'; color = '#FF0040' }
+                          else { bg = '#080808'; border = '#111'; color = '#333' }
+                        } else if (isDis) { bg = '#080808'; border = '#111'; color = '#333' }
 
                         return (
                           <button
@@ -955,10 +962,10 @@ function BattleUI() {
                             disabled={isDis}
                             style={{
                               fontFamily: 'var(--font-pixel), monospace',
-                              fontSize: 'clamp(6px, 1vw, 8px)',
+                              fontSize: 'clamp(11px, 1.3vw, 14px)',
                               letterSpacing: 1, color, backgroundColor: bg,
                               border: `1px solid ${border}`,
-                              padding: '9px 12px', textAlign: 'left',
+                              padding: '14px 16px', textAlign: 'left',
                               cursor: isDis ? 'default' : 'pointer',
                               transition: 'all 0.15s', lineHeight: 1.7,
                               animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
@@ -971,7 +978,6 @@ function BattleUI() {
                         )
                       })}
                     </div>
-                  )}
                 </div>
 
                 {/* Explanation strip — slides in after answering */}
@@ -986,7 +992,7 @@ function BattleUI() {
                     overflow: 'hidden',
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#00f0ff33', letterSpacing: 3, marginBottom: 5, textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#00f0ff44', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
                         Explanation
                       </div>
                       <p style={{ margin: 0, fontSize: 'clamp(6px, 1.05vw, 8px)', color: '#99bbbb', lineHeight: 1.85 }}>
@@ -999,12 +1005,12 @@ function BattleUI() {
                       style={{
                         flexShrink: 0,
                         fontFamily: 'var(--font-pixel), monospace',
-                        fontSize: 'clamp(5px, 0.85vw, 7px)',
+                        fontSize: 'clamp(10px, 1.1vw, 13px)',
                         letterSpacing: 2,
                         color: '#00f0ff',
                         backgroundColor: '#001018',
                         border: '1px solid #00f0ff44',
-                        padding: '8px 16px',
+                        padding: '10px 20px',
                         cursor: 'pointer',
                         alignSelf: 'center',
                         transition: 'all 0.15s',
