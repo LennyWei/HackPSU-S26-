@@ -10,7 +10,7 @@ Call 4: Judge the player's answer
 import os
 import json
 import io
-import PyPDF2
+import tempfile
 import google.generativeai as genai
 from dotenv import load_dotenv
 from models import KnowledgeGraph, Boss, Question, AnswerJudgment
@@ -38,19 +38,23 @@ def _parse_json(text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def call_1_extract_knowledge(pdf_bytes: bytes) -> KnowledgeGraph:
-    """Parse the PDF and extract a structured list of topics."""
-    reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
-    text = "".join(page.extract_text() or "" for page in reader.pages)
+    """Upload the PDF directly to Gemini and extract a structured knowledge graph."""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_bytes)
+        tmp_path = tmp.name
 
-    prompt = f"""You are an expert educator. Analyze this study material and extract a structured knowledge graph.
+    try:
+        uploaded = genai.upload_file(tmp_path, mime_type="application/pdf")
+
+        prompt = """You are an expert educator. Analyze this study material and extract a structured knowledge graph.
 
 Return ONLY valid JSON with no markdown fences:
-{{
+{
     "subject": "Name of the subject or course",
     "document_complexity": "low|medium|high",
     "total_concept_count": <integer>,
     "topics": [
-        {{
+        {
             "id": "short unique id like t1, t2...",
             "name": "Topic Name",
             "description": "2-3 sentence description of this topic",
@@ -58,18 +62,18 @@ Return ONLY valid JSON with no markdown fences:
             "key_concepts": ["concept1", "concept2", "concept3"],
             "has_diagrams": false,
             "subject_category": "science|math|history|literature|other"
-        }}
+        }
     ]
-}}
+}
 
-Extract 3-6 major topics. Each topic must be a distinct, testable area of the material.
+Extract 3-5 major topics. Each topic must be a distinct, testable area of the material."""
 
-Study material:
-{text[:6000]}
-"""
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
-    return KnowledgeGraph.from_dict(data)
+        response = _model.generate_content([uploaded, prompt])
+        uploaded.delete()
+        data = _parse_json(response.text)
+        return KnowledgeGraph.from_dict(data)
+    finally:
+        os.unlink(tmp_path)
 
 
 # ---------------------------------------------------------------------------
