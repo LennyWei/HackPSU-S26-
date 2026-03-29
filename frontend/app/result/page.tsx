@@ -473,12 +473,8 @@ function ResultContent() {
           {/* Divider */}
           <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${outcomeBorder}66, transparent)` }} />
 
-          {/* ── Score quick stats ── */}
+          {/* ── Quick stats ── */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 28, fontSize: 'clamp(9px, 1.1vw, 12px)', animation: 'scoreReveal 0.5s ease 0.4s both' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>SCORE</div>
-              <div style={{ color: C.gold }}><ScoreCounter target={score} /></div>
-            </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>ACCURACY</div>
               <div style={{ color: accuracy >= 70 ? C.greenHi : C.redHi }}>{accuracy}%</div>
