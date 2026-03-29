@@ -22,7 +22,8 @@ export interface CombatQuestion {
   choices: CombatChoice[]
   correctAnswerId: string
   concept: string
-  explanation: string
+  explanation: string                        // plain string (FRQ or fallback)
+  explanations?: Record<string, string>      // per-choice map from backend {"A":..., "B":...}
   wrong_taunts: WrongTaunt[]
   question_type?: string    // 'free_response' or undefined/empty for MCQ
 }

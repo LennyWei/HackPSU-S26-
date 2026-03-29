@@ -192,7 +192,12 @@ Return ONLY valid JSON with no markdown fences:
         {{"id": "D", "text": "fourth option"}}
     ],
     "correct_answer": "A",
-    "explanation": "Clear explanation of why the correct answer is right",
+    "explanation": {{
+        "A": "Explanation of why A is correct or incorrect",
+        "B": "Explanation of why B is correct or incorrect",
+        "C": "Explanation of why C is correct or incorrect",
+        "D": "Explanation of why D is correct or incorrect"
+    }},
     "difficulty": <integer 1-10 reflecting how hard this specific question is>,
     "wrong_taunts": [
         {{"answer": "A", "taunt": "in-character taunt mocking the player for choosing A (only include if A is wrong)"}},
