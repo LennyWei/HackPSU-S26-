@@ -12,9 +12,9 @@ const TRACK_PATHS: Record<Exclude<MusicTrack, 'none'>, string> = {
   corruption: '/sounds/music/Corruption.mp3',
 }
 
-const MASTER_MUSIC_VOLUME = 0.20
+const MASTER_MUSIC_VOLUME = 0.10
 const DRONE_PATH = '/sounds/sfx/lowDrone.wav'
-const DRONE_VOLUME = 0.1
+const DRONE_VOLUME = 0.03
 const UI_SFX_VOLUME_SCALE = 1 / 4
 
 const AUDIO_DEBUG = typeof window !== 'undefined' && window.location.hostname === 'localhost'
