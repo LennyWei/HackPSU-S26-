@@ -1113,7 +1113,7 @@ function BattleUI() {
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: isExplanation ? 'visible' : 'hidden' }}>
 
                 {/* Question row */}
-                <div style={{ flex: isExplanation ? '0 0 auto' : 1, minHeight: 0, padding: '10px 18px 8px', display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', overflow: 'hidden' }}>
+                <div style={{ flex: 1, minHeight: 0, padding: '10px 18px 8px', display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', overflow: 'hidden' }}>
 
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 'clamp(13px, 1.6vw, 18px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
@@ -1177,7 +1177,7 @@ function BattleUI() {
                     </div>
                   ) : (
                     /* ── Multiple choice grid ── */
-                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'center' }}>
+                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start', marginTop: 16 }}>
                       {choices.map(choice => {
                         const isSel = state.selectedAnswer === choice.id
                         const isCorr = choice.id === q.correctAnswerId
@@ -1193,28 +1193,56 @@ function BattleUI() {
                         } else if (isDis) { bg = '#080808'; border = '#111'; color = '#333' }
 
                         return (
-                          <button
-                            key={choice.id}
-                            onClick={() => handleAnswer(choice.id)}
-                            disabled={isDis}
-                            style={{
-                              fontFamily: 'var(--font-pixel), monospace',
-                              fontSize: 'clamp(6px, 1vw, 8px)',
-                              letterSpacing: 1,
-                              color, backgroundColor: bg,
-                              border: `1px solid ${border}`,
-                              padding: '9px 12px',
-                              textAlign: 'left',
-                              cursor: isDis ? 'default' : 'pointer',
-                              transition: 'all 0.15s',
-                              lineHeight: 1.7,
-                              animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
-                            }}
-                            onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
-                            onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
-                          >
-                            {choice.id}) {choice.text}
-                          </button>
+                          <div key={choice.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <button
+                              onClick={() => handleAnswer(choice.id)}
+                              disabled={isDis}
+                              style={{
+                                width: '100%',
+                                fontFamily: 'var(--font-pixel), monospace',
+                                fontSize: 'clamp(8px, 1.1vw, 10px)',
+                                letterSpacing: 1,
+                                color, backgroundColor: bg,
+                                border: `1px solid ${border}`,
+                                padding: '9px 12px',
+                                textAlign: 'left',
+                                cursor: isDis ? 'default' : 'pointer',
+                                transition: 'all 0.15s',
+                                lineHeight: 1.7,
+                                animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
+                              }}
+                              onMouseEnter={e => { if (isActive) { e.currentTarget.style.backgroundColor = '#00f0ff1a'; e.currentTarget.style.borderColor = '#00f0ff66' } }}
+                              onMouseLeave={e => { if (isActive) { e.currentTarget.style.backgroundColor = bg; e.currentTarget.style.borderColor = border } }}
+                            >
+                              {choice.id}) {choice.text}
+                            </button>
+
+                            {/* Per-choice explanation dropdown directly below the button */}
+                            {hasExp && (
+                              <div style={{ border: `1px solid ${border}`, backgroundColor: bg, marginTop: -4 }}>
+                                <button
+                                  onClick={() => setOpenExps(prev =>
+                                    prev.includes(choice.id)
+                                      ? prev.filter(id => id !== choice.id)
+                                      : [...prev, choice.id]
+                                  )}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    padding: '6px 12px', background: 'none', border: 'none',
+                                    cursor: 'pointer', fontFamily: 'var(--font-pixel), monospace',
+                                  }}
+                                >
+                                  <span style={{ fontSize: 'clamp(6px, 0.8vw, 8px)', color, letterSpacing: 1 }}>WHY?</span>
+                                  <span style={{ fontSize: 8, color }}>{isOpen ? '▲' : '▼'}</span>
+                                </button>
+                                {isOpen && (
+                                  <div style={{ padding: '0 12px 10px 12px', fontSize: 'clamp(7px, 0.9vw, 10px)', color: '#99bbbb', lineHeight: 1.6 }}>
+                                    {q.explanations![choice.id]}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )
                       })}
                     </div>
@@ -1229,21 +1257,10 @@ function BattleUI() {
                     borderTop: '1px solid #00f0ff18',
                     backgroundColor: '#020209',
                     padding: '10px 18px 12px',
-                    display: 'flex', alignItems: 'flex-start', gap: 16,
+                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
                     animation: 'slideDown 0.35s ease',
                     overflow: 'hidden',
                   }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#00f0ff44', letterSpacing: 3, marginBottom: 8, textTransform: 'uppercase' }}>
-                        Explanation
-                      </div>
-
-                      {/* Generic explanation for FRQ, or empty container to maintain layout for MCQ */}
-                      <p style={{ margin: 0, fontSize: 'clamp(6px, 1.05vw, 8px)', color: '#99bbbb', lineHeight: 1.85 }}>
-                        {isFrq || (!q.explanations) ? explanationText : "Review the explanations under each choice above."}
-                      </p>
-                    </div>
-
                     <button
                       onClick={() => combat.explanationOK()}
                       style={{
@@ -1256,7 +1273,6 @@ function BattleUI() {
                         border: '1px solid #00f0ff44',
                         padding: '10px 20px',
                         cursor: 'pointer',
-                        alignSelf: 'center',
                         transition: 'all 0.15s',
                         whiteSpace: 'nowrap',
                       }}
