@@ -90,7 +90,7 @@ function ResultCard({ result, index }: { result: import('@/context/GameContext')
       {/* Badge */}
       <div style={{
         position: 'absolute', top: 10, right: 10,
-        fontSize: 'clamp(4px, 1vw, 6px)',
+        fontSize: 'clamp(9px, 1vw, 11px)',
         color: hiColor, letterSpacing: 2,
       }}>
         {correct ? '✓ CORRECT' : '✗ WRONG'}
@@ -98,23 +98,23 @@ function ResultCard({ result, index }: { result: import('@/context/GameContext')
 
       {/* Concept + damage */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2 }}>Q{index + 1}</span>
-        <span style={{ fontSize: 'clamp(5px, 1.2vw, 7px)', color: C.gold, letterSpacing: 1 }}>
+        <span style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2 }}>Q{index + 1}</span>
+        <span style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.gold, letterSpacing: 1 }}>
           {result.conceptName}
         </span>
         {correct
-          ? <span style={{ fontSize: 'clamp(4px, 1vw, 5px)', color: C.greenHi, marginLeft: 'auto', paddingRight: 70 }}>-{result.damage} HP to boss</span>
-          : <span style={{ fontSize: 'clamp(4px, 1vw, 5px)', color: C.redHi,   marginLeft: 'auto', paddingRight: 70 }}>-{result.playerDamage} HP to you</span>
+          ? <span style={{ fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.greenHi, marginLeft: 'auto', paddingRight: 70 }}>-{result.damage} HP to boss</span>
+          : <span style={{ fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.redHi,   marginLeft: 'auto', paddingRight: 70 }}>-{result.playerDamage} HP to you</span>
         }
       </div>
 
       {/* Question */}
-      <p style={{ margin: '0 0 6px', fontSize: 'clamp(5px, 1.3vw, 8px)', color: C.text, lineHeight: 1.8 }}>
+      <p style={{ margin: '0 0 6px', fontSize: 'clamp(9px, 1.1vw, 12px)', color: C.text, lineHeight: 1.8 }}>
         {result.question}
       </p>
 
       {/* Player answer */}
-      <div style={{ fontSize: 'clamp(4px, 1.1vw, 7px)', color: hiColor, lineHeight: 1.6, marginBottom: expanded ? 10 : 0 }}>
+      <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: hiColor, lineHeight: 1.6, marginBottom: expanded ? 10 : 0 }}>
         Your answer: &ldquo;{result.playerAnswer}&rdquo;
       </div>
 
@@ -125,16 +125,16 @@ function ResultCard({ result, index }: { result: import('@/context/GameContext')
           borderTop: `1px solid ${borderColor}22`,
           animation: 'fadeIn 0.25s ease',
         }}>
-          <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.accent, letterSpacing: 2, marginBottom: 6 }}>
+          <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.accent, letterSpacing: 2, marginBottom: 6 }}>
             ── EXPLANATION ──
           </div>
-          <p style={{ margin: 0, fontSize: 'clamp(5px, 1.3vw, 8px)', color: C.text, lineHeight: 2 }}>
+          <p style={{ margin: 0, fontSize: 'clamp(9px, 1.1vw, 12px)', color: C.text, lineHeight: 2 }}>
             {result.explanation}
           </p>
         </div>
       )}
 
-      <div style={{ marginTop: 6, fontSize: 'clamp(3px, 0.9vw, 5px)', color: C.textDim, letterSpacing: 1, textAlign: 'right' }}>
+      <div style={{ marginTop: 6, fontSize: 'clamp(8px, 0.9vw, 10px)', color: C.textDim, letterSpacing: 1, textAlign: 'right' }}>
         {expanded ? '▲ collapse' : '▼ tap for explanation'}
       </div>
     </div>
@@ -146,7 +146,7 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
   return (
     <button onClick={onClick} style={{
       fontFamily: 'var(--font-pixel), monospace',
-      fontSize: 'clamp(5px, 1.3vw, 8px)', letterSpacing: 2,
+      fontSize: 'clamp(9px, 1vw, 11px)', letterSpacing: 2,
       color: active ? C.bg : C.textDim,
       backgroundColor: active ? C.gold : 'transparent',
       border: `1px solid ${active ? C.gold : C.border}`,
@@ -231,17 +231,17 @@ export default function TransitionPage() {
         <div style={{
           position: 'relative', zIndex: 2,
           display: 'flex', flexDirection: 'column',
-          maxWidth: 560, width: '100%', margin: '0 auto',
-          padding: '20px 16px 40px', gap: 16,
+          maxWidth: 720, width: '100%', margin: '0 auto',
+          padding: '16px 24px 28px', gap: 12,
         }}>
 
           {/* Header */}
           <div style={{ textAlign: 'center', paddingTop: 10 }}>
-            <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 3, marginBottom: 8 }}>
+            <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 3, marginBottom: 8 }}>
               BOSS {prevBossIndex + 1} OF {totalBosses} CLEARED
             </div>
             <h1 style={{
-              fontSize: 'clamp(14px, 4vw, 24px)', color: C.gold, letterSpacing: 4,
+              fontSize: 'clamp(20px, 4vw, 34px)', color: C.gold, letterSpacing: 4,
               animation: 'titlePulse 2s ease-in-out infinite',
             }}>
               BOSS DEFEATED!
@@ -253,8 +253,8 @@ export default function TransitionPage() {
 
             {/* Quick stats */}
             <div style={{
-              display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12,
-              fontSize: 'clamp(5px, 1.2vw, 7px)',
+              display: 'flex', justifyContent: 'center', gap: 28, marginTop: 12,
+              fontSize: 'clamp(9px, 1.1vw, 12px)',
             }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>ACCURACY</div>
@@ -292,13 +292,13 @@ export default function TransitionPage() {
               }}>
                 <PixelCorner pos="tl" color={C.borderHi} />
                 <PixelCorner pos="br" color={C.borderHi} />
-                <div style={{ fontSize: 'clamp(5px, 1.2vw, 7px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>
+                <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>
                   BOSS RUSH PROGRESS
                 </div>
-                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                   {Array.from({ length: totalBosses }, (_, i) => (
                     <div key={i} style={{
-                      width: 20, height: 20,
+                      width: 24, height: 24,
                       backgroundColor: i < currentBossIndex ? C.green : i === prevBossIndex + 1 ? C.red : '#0e0c1e',
                       boxShadow: i < currentBossIndex ? `0 0 4px ${C.green}66` : 'none',
                       border: i === prevBossIndex ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
@@ -306,7 +306,7 @@ export default function TransitionPage() {
                     }} />
                   ))}
                 </div>
-                <div style={{ marginTop: 8, fontSize: 'clamp(4px, 1vw, 6px)', color: C.greenHi, letterSpacing: 2 }}>
+                <div style={{ marginTop: 8, fontSize: 'clamp(9px, 1vw, 11px)', color: C.greenHi, letterSpacing: 2 }}>
                   {currentBossIndex} / {totalBosses} BOSSES DEFEATED
                 </div>
               </div>
@@ -319,7 +319,7 @@ export default function TransitionPage() {
               }}>
                 <PixelCorner pos="tl" color={C.borderHi} />
                 <PixelCorner pos="br" color={C.borderHi} />
-                <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>
+                <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>
                   ── BATTLE SUMMARY ──
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -329,19 +329,19 @@ export default function TransitionPage() {
                     { label: 'ACCURACY',          value: `${accuracy}%`,              color: accuracy >= 70 ? C.greenHi : C.gold },
                     { label: 'SCORE THIS ROUND',  value: score.toLocaleString(),       color: C.gold },
                   ].map(({ label, value, color }) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${C.border}` }}>
-                      <span style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2 }}>{label}</span>
-                      <span style={{ fontSize: 'clamp(5px, 1.2vw, 7px)', color }}>{value}</span>
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2 }}>{label}</span>
+                      <span style={{ fontSize: 'clamp(9px, 1vw, 11px)', color }}>{value}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{ textAlign: 'center', fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2 }}>
+              <div style={{ textAlign: 'center', fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 2 }}>
                 CHECK THE REVIEW TAB FOR DETAILED EXPLANATIONS
               </div>
 
-              <div style={{ textAlign: 'center', fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 1 }}>
+              <div style={{ textAlign: 'center', fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 1 }}>
                 Auto-continuing in{' '}
                 <span style={{ color: C.gold, animation: 'blink 1s step-start infinite' }}>{countdown}s</span>
                 ...
@@ -368,12 +368,12 @@ export default function TransitionPage() {
           {/* Review tab */}
           {tab === 'review' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, marginBottom: 4 }}>
+              <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 2, marginBottom: 4 }}>
                 TAP A CARD TO SEE THE IN-DEPTH EXPLANATION
               </div>
 
               {lastBossResults.length === 0 ? (
-                <div style={{ textAlign: 'center', fontSize: 'clamp(6px, 1.5vw, 9px)', color: C.textDim, padding: 40 }}>
+                <div style={{ textAlign: 'center', fontSize: 'clamp(11px, 1.4vw, 13px)', color: C.textDim, padding: 40 }}>
                   NO QUESTIONS ON RECORD
                 </div>
               ) : (
