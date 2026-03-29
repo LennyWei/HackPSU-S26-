@@ -105,6 +105,7 @@ export default function PixelGridBg() {
 
     // ── Draw ──
     function draw(time: number) {
+      if (!ctx) return
       ctx.clearRect(0, 0, w, h)
 
       // Grid lines
