@@ -769,23 +769,30 @@ function BattleUI() {
           <div style={{ height: 2, flexShrink: 0, background: 'linear-gradient(90deg, transparent, #FF004044 25%, #9933ff55 50%, #00f0ff44 75%, transparent)' }} />
 
           {/* Dialogue */}
-          <div style={{ padding: '10px 18px 8px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 64 }}>
-            <div style={{ fontSize: 'clamp(4px, 0.75vw, 5px)', color: '#FF004044', letterSpacing: 3, marginBottom: 5, textTransform: 'uppercase' }}>
+          <div style={{ padding: '12px 20px 10px', borderBottom: '1px solid #ffffff07', flexShrink: 0, position: 'relative', minHeight: 80 }}>
+            <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#FF004066', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
               {game.currentBoss.name}:
             </div>
-            <p style={{ margin: 0, fontSize: 'clamp(7px, 1.2vw, 9px)', color: '#cccccc', lineHeight: 2 }}>
+            <p style={{
+              margin: 0,
+              fontSize: 'clamp(12px, 1.5vw, 16px)',
+              color: (isReveal && !state.isCorrect) ? '#FF7755' : '#dddddd',
+              lineHeight: 1.9,
+              textShadow: (isReveal && !state.isCorrect) ? '0 0 12px #FF440022' : 'none',
+              letterSpacing: 0.5,
+            }}>
               {isLoading ? <span style={{ color: '#2a2a2a', animation: 'blink 0.8s infinite', display: 'inline-block' }}>▋</span> : dialogue}
               {isActive && <span style={{ animation: 'blink 0.6s infinite', color: '#FF3333', marginLeft: 2 }}>▋</span>}
             </p>
-            {(isReveal || isExplanation) && state.isCorrect === true  && <div style={{ position: 'absolute', top: 10, right: 18, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>}
-            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 10, right: 18, fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>}
+            {(isReveal || isExplanation) && state.isCorrect === true  && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#39FF14', textShadow: '0 0 12px #39FF14', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✓ CORRECT</div>}
+            {(isReveal || isExplanation) && state.isCorrect === false && <div style={{ position: 'absolute', top: 12, right: 20, fontSize: 'clamp(9px, 1.1vw, 13px)', color: '#FF0040', textShadow: '0 0 12px #FF0040', animation: 'resultPop 0.3s ease', letterSpacing: 2 }}>✗ WRONG</div>}
           </div>
 
           {/* Content */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
             {isLoading && (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(5px, 0.9vw, 6px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#2a2a2a', letterSpacing: 3, animation: 'blink 1.4s ease-in-out infinite' }}>
                 ENEMY IS CHARGING...
               </div>
             )}
@@ -798,7 +805,7 @@ function BattleUI() {
                 <div style={{ flex: 1, minHeight: 0, padding: '10px 18px 8px', display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'stretch', animation: 'fadeSlideUp 0.25s ease', overflow: 'hidden' }}>
 
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 'clamp(6px, 1.1vw, 8px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
+                    <p style={{ margin: 0, fontSize: 'clamp(13px, 1.6vw, 18px)', color: '#FFD700', lineHeight: 1.9, textShadow: '0 0 8px #FFD70022' }}>
                       {q.question_text}
                     </p>
                   </div>
@@ -825,10 +832,10 @@ function BattleUI() {
                           disabled={isDis}
                           style={{
                             fontFamily: 'var(--font-pixel), monospace',
-                            fontSize: 'clamp(6px, 1vw, 8px)',
+                            fontSize: 'clamp(11px, 1.3vw, 14px)',
                             letterSpacing: 1, color, backgroundColor: bg,
                             border: `1px solid ${border}`,
-                            padding: '9px 12px', textAlign: 'left',
+                            padding: '14px 16px', textAlign: 'left',
                             cursor: isDis ? 'default' : 'pointer',
                             transition: 'all 0.15s', lineHeight: 1.7,
                             animation: isActive ? 'choicePulse 2s ease-in-out infinite' : 'none',
@@ -855,10 +862,10 @@ function BattleUI() {
                     overflow: 'hidden',
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 'clamp(4px, 0.7vw, 5px)', color: '#00f0ff33', letterSpacing: 3, marginBottom: 5, textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: '#00f0ff44', letterSpacing: 3, marginBottom: 6, textTransform: 'uppercase' }}>
                         Explanation
                       </div>
-                      <p style={{ margin: 0, fontSize: 'clamp(6px, 1.05vw, 8px)', color: '#99bbbb', lineHeight: 1.85 }}>
+                      <p style={{ margin: 0, fontSize: 'clamp(12px, 1.4vw, 15px)', color: '#99bbbb', lineHeight: 1.85 }}>
                         {q.explanation}
                       </p>
                     </div>
@@ -868,12 +875,12 @@ function BattleUI() {
                       style={{
                         flexShrink: 0,
                         fontFamily: 'var(--font-pixel), monospace',
-                        fontSize: 'clamp(5px, 0.85vw, 7px)',
+                        fontSize: 'clamp(10px, 1.1vw, 13px)',
                         letterSpacing: 2,
                         color: '#00f0ff',
                         backgroundColor: '#001018',
                         border: '1px solid #00f0ff44',
-                        padding: '8px 16px',
+                        padding: '10px 20px',
                         cursor: 'pointer',
                         alignSelf: 'center',
                         transition: 'all 0.15s',
