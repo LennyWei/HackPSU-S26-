@@ -1129,7 +1129,7 @@ function BattleUI() {
           </div>
 
           {/* Item slots — bottom-left */}
-          <div style={{ position: 'absolute', bottom: 10, left: 14, display: 'flex', gap: 6, zIndex: 5 }}>
+          <div style={{ position: 'absolute', bottom: 10, left: 30, display: 'flex', gap: 12, zIndex: 5 }}>
             {Array.from({ length: MAX_INVENTORY }).map((_, slotIdx) => {
               const item = inventorySlots[slotIdx]
               const MCQ_ONLY_EFFECTS = ['eliminate_wrong', 'eliminate_two', 'reveal_answer']
@@ -1149,7 +1149,7 @@ function BattleUI() {
                   }}
                   style={{
                     position: 'relative',
-                    width: 46, height: 46,
+                    width: 92, height: 92,
                     border: item ? `1px solid ${c}${isHover ? 'bb' : '44'}` : '1px dashed #1c1c1c',
                     backgroundColor: item ? `${c}${isHover ? '20' : '0c'}` : '#0a0a0a',
                     cursor: canUse ? 'pointer' : 'default',
@@ -1161,10 +1161,10 @@ function BattleUI() {
                   }}
                 >
                   {item
-                    ? <img src={`/images/item_icons/${encodeURIComponent(item.label)}.png`} alt={item.label} style={{ width: 34, height: 34, imageRendering: 'pixelated' }} />
-                    : <div style={{ width: 20, height: 20, border: '1px dashed #1c1c1c', opacity: 0.3 }} />
+                    ? <img src={`/images/item_icons/${encodeURIComponent(item.label)}.png`} alt={item.label} style={{ width: 68, height: 68, imageRendering: 'pixelated' }} />
+                    : <div style={{ width: 40, height: 40, border: '1px dashed #1c1c1c', opacity: 0.3 }} />
                   }
-                  <div style={{ position: 'absolute', bottom: 2, right: 3, fontSize: 4, color: item ? `${c}77` : '#1c1c1c', fontFamily: 'var(--font-pixel), monospace' }}>{slotIdx + 1}</div>
+                  <div style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 8, color: item ? `${c}77` : '#1c1c1c', fontFamily: 'var(--font-pixel), monospace' }}>{slotIdx + 1}</div>
 
                   {/* Tooltip */}
                   {item && isHover && (
@@ -1172,15 +1172,15 @@ function BattleUI() {
                       position: 'absolute', bottom: '115%', left: '50%',
                       transform: 'translateX(-50%)',
                       backgroundColor: '#08080f', border: `1px solid ${c}44`,
-                      padding: '7px 10px', width: 130, zIndex: 20,
+                      padding: '14px 20px', width: 260, zIndex: 20,
                       pointerEvents: 'none',
                       boxShadow: `0 0 16px #00000099, 0 0 6px ${c}22`,
                     }}>
-                      <div style={{ fontSize: 6, color: c, letterSpacing: 1, marginBottom: 4 }}>{item.label.toUpperCase()}</div>
-                      <div style={{ fontSize: 5, color: '#666', lineHeight: 1.5 }}>{item.description}</div>
-                      <div style={{ fontSize: 4, color: `${c}77`, marginTop: 4, letterSpacing: 2, textTransform: 'uppercase' }}>{item.rarity}</div>
-                      {!isActive && <div style={{ fontSize: 4, color: '#FF004077', marginTop: 3 }}>ACTIVE ONLY</div>}
-                      {isFrq && isMcqOnly && <div style={{ fontSize: 4, color: '#FF990077', marginTop: 3 }}>MCQ ONLY</div>}
+                      <div style={{ fontSize: 12, color: c, letterSpacing: 1, marginBottom: 8 }}>{item.label.toUpperCase()}</div>
+                      <div style={{ fontSize: 10, color: '#666', lineHeight: 1.5 }}>{item.description}</div>
+                      <div style={{ fontSize: 8, color: `${c}77`, marginTop: 8, letterSpacing: 2, textTransform: 'uppercase' }}>{item.rarity}</div>
+                      {!isActive && <div style={{ fontSize: 8, color: '#FF004077', marginTop: 6 }}>ACTIVE ONLY</div>}
+                      {isFrq && isMcqOnly && <div style={{ fontSize: 8, color: '#FF990077', marginTop: 6 }}>MCQ ONLY</div>}
                     </div>
                   )}
                 </div>

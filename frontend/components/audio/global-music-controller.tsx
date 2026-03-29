@@ -12,9 +12,9 @@ const TRACK_PATHS: Record<Exclude<MusicTrack, 'none'>, string> = {
   corruption: '/sounds/music/Corruption.mp3',
 }
 
-const MASTER_MUSIC_VOLUME = 0.10
+const MASTER_MUSIC_VOLUME = 0.05
 const DRONE_PATH = '/sounds/sfx/lowDrone.wav'
-const DRONE_VOLUME = 0.03
+const DRONE_VOLUME = 0.01
 const UI_SFX_VOLUME_SCALE = 1 / 4
 
 const AUDIO_DEBUG = typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -79,7 +79,9 @@ export default function GlobalMusicController() {
     if (activePath.startsWith('/battle')) {
       const battleState = battleStateRef.current
       const caseOpening = battleState?.phase === 'case_opening' && battleState?.hasPendingReward
-      return { track: 'corruption', mix: caseOpening ? 'muffled' : 'normal' }
+      const isLoading = battleState?.phase === 'loading'
+      const shouldMuffle = caseOpening || isLoading
+      return { track: 'corruption', mix: shouldMuffle ? 'muffled' : 'normal' }
     }
     if (activePath.startsWith('/transition')) return { track: 'corruption', mix: 'muffled' }
     return { track: 'rising-tide', mix: 'muffled' }
@@ -372,6 +374,8 @@ export default function GlobalMusicController() {
 
     dryGain.gain.cancelScheduledValues(now)
     muffledGain.gain.cancelScheduledValues(now)
+    masterGain.gain.cancelScheduledValues(now)
+    masterGain.gain.setTargetAtTime(MASTER_MUSIC_VOLUME, now, fade)
 
     if (mix === 'normal') {
       lowpass.frequency.setTargetAtTime(18000, now, fade)
