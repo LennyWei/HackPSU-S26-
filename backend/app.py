@@ -264,8 +264,10 @@ Model answer (key points that must be covered): {model_answer}
 Player's answer: {player_answer}
 
 Grading criteria:
-- is_correct: true if the answer covers the essential concepts, even if worded differently
-- Be generous with paraphrasing — penalize only factual errors or missing critical concepts
+- is_correct: true if the student demonstrates understanding of the core concept, even partially
+- Accept answers that capture the main idea, even if incomplete, imprecise, or informally worded
+- Only mark false if the answer is factually wrong, contradicts the concept, or is completely off-topic
+- When in doubt, lean toward marking it correct
 
 Return ONLY valid JSON with no markdown fences:
 {{
