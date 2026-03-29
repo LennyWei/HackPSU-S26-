@@ -10,14 +10,14 @@ Call 4: Judge the player's answer
 import os
 import json
 import io
-import PyPDF2
+import tempfile
 import google.generativeai as genai
 from dotenv import load_dotenv
 from models import KnowledgeGraph, Boss, Question, AnswerJudgment
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-_model = genai.GenerativeModel("gemini-2.5-flash-lite")
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+_MODEL  = "gemini-2.5-flash"
 
 
 # ---------------------------------------------------------------------------
@@ -38,19 +38,23 @@ def _parse_json(text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def call_1_extract_knowledge(pdf_bytes: bytes) -> KnowledgeGraph:
-    """Parse the PDF and extract a structured list of topics."""
-    reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
-    text = "".join(page.extract_text() or "" for page in reader.pages)
+    """Upload the PDF directly to Gemini and extract a structured knowledge graph."""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_bytes)
+        tmp_path = tmp.name
 
-    prompt = f"""You are an expert educator. Analyze this study material and extract a structured knowledge graph.
+    try:
+        uploaded = genai.upload_file(tmp_path, mime_type="application/pdf")
+
+        prompt = """You are an expert educator. Analyze this study material and extract a structured knowledge graph.
 
 Return ONLY valid JSON with no markdown fences:
-{{
+{
     "subject": "Name of the subject or course",
     "document_complexity": "low|medium|high",
     "total_concept_count": <integer>,
     "topics": [
-        {{
+        {
             "id": "short unique id like t1, t2...",
             "name": "Topic Name",
             "description": "2-3 sentence description of this topic",
@@ -58,18 +62,18 @@ Return ONLY valid JSON with no markdown fences:
             "key_concepts": ["concept1", "concept2", "concept3"],
             "has_diagrams": false,
             "subject_category": "science|math|history|literature|other"
-        }}
+        }
     ]
-}}
+}
 
-Extract 3-6 major topics. Each topic must be a distinct, testable area of the material.
+Extract 3-5 major topics. Each topic must be a distinct, testable area of the material."""
 
-Study material:
-{text[:6000]}
-"""
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
-    return KnowledgeGraph.from_dict(data)
+        response = _model.generate_content([uploaded, prompt])
+        uploaded.delete()
+        data = _parse_json(response.text)
+        return KnowledgeGraph.from_dict(data)
+    finally:
+        os.unlink(tmp_path)
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +109,8 @@ Return ONLY valid JSON with no markdown fences:
     "topic_ids": {json.dumps(topic_ids)}
 }}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return Boss.from_dict(data, is_final=is_final)
 
 
@@ -147,17 +151,28 @@ Return ONLY valid JSON with no markdown fences:
     "concept": "the specific concept this question tests",
     "question_text": "The full question text",
     "question_type": "recall|conceptual|application",
-    "options": ["A) first option", "B) second option", "C) third option", "D) fourth option"],
-    "correct_answer": "A) the correct option (must match one of the options exactly)",
+    "options": [
+        {{"id": "A", "text": "first option"}},
+        {{"id": "B", "text": "second option"}},
+        {{"id": "C", "text": "third option"}},
+        {{"id": "D", "text": "fourth option"}}
+    ],
+    "correct_answer": "A",
     "explanation": "Clear explanation of why the correct answer is right",
+    "difficulty": <integer 1-10 reflecting how hard this specific question is>,
+    "wrong_taunts": [
+        {{"answer": "A", "taunt": "in-character taunt mocking the player for choosing A (only include if A is wrong)"}},
+        {{"answer": "B", "taunt": "in-character taunt mocking the player for choosing B (only include if B is wrong)"}},
+        {{"answer": "C", "taunt": "in-character taunt mocking the player for choosing C (only include if C is wrong)"}},
+        {{"answer": "D", "taunt": "in-character taunt mocking the player for choosing D (only include if D is wrong)"}}
+    ],
     "difficulty_tier": {difficulty_tier},
     "damage_on_correct": {10 * difficulty_tier + 10},
-    "damage_on_wrong": {5 * difficulty_tier + 5},
-    "time_limit_seconds": {max(20, 45 - difficulty_tier * 5)}
+    "damage_on_wrong": {5 * difficulty_tier + 5}
 }}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return Question.from_dict(data)
 
 
@@ -185,6 +200,6 @@ Return ONLY valid JSON with no markdown fences:
     "add_to_weak_spots": true if the player answered incorrectly
 }}
 """
-    response = _model.generate_content(prompt)
-    data = _parse_json(response.text)
+    response = _client.models.generate_content(model=_MODEL, contents=prompt)
+    data = _parse_json(response.text or "")
     return AnswerJudgment.from_dict(data)

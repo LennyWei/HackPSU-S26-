@@ -115,13 +115,14 @@ class Question:
     concept: str
     question_text: str
     question_type: str           # "recall", "conceptual", "application", etc.
-    options: list[str]           # multiple choice options (empty for FRQ)
-    correct_answer: str
+    options: list[dict]          # [{"id": "A", "text": "..."}, ...]
+    correct_answer: str          # option id, e.g. "A"
     explanation: str
+    difficulty: int              # 1-10
+    wrong_taunts: list[dict]     # [{"answer": "B", "taunt": "..."}, ...] one per wrong option
     difficulty_tier: int         # 1-5 matching Difficulty enum
     damage_on_correct: int       # how much boss HP to remove
     damage_on_wrong: int         # how much player HP to remove
-    time_limit_seconds: int      # scales with difficulty
 
     @staticmethod
     def from_dict(d: dict) -> "Question":
@@ -134,10 +135,11 @@ class Question:
             options=d.get("options", []),
             correct_answer=d.get("correct_answer", ""),
             explanation=d.get("explanation", ""),
+            difficulty=d.get("difficulty", 5),
+            wrong_taunts=d.get("wrong_taunts", []),
             difficulty_tier=d.get("difficulty_tier", 1),
             damage_on_correct=d.get("damage_on_correct", 20),
             damage_on_wrong=d.get("damage_on_wrong", 15),
-            time_limit_seconds=d.get("time_limit_seconds", 45),
         )
 
 
