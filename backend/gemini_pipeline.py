@@ -17,7 +17,7 @@ from models import KnowledgeGraph, Boss, Question, AnswerJudgment
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-_model = genai.GenerativeModel("gemini-1.5-flash")
+_model = genai.GenerativeModel("gemini-2.5-flash")
 
 
 # ---------------------------------------------------------------------------
@@ -147,13 +147,24 @@ Return ONLY valid JSON with no markdown fences:
     "concept": "the specific concept this question tests",
     "question_text": "The full question text",
     "question_type": "recall|conceptual|application",
-    "options": ["A) first option", "B) second option", "C) third option", "D) fourth option"],
-    "correct_answer": "A) the correct option (must match one of the options exactly)",
+    "options": [
+        {{"id": "A", "text": "first option"}},
+        {{"id": "B", "text": "second option"}},
+        {{"id": "C", "text": "third option"}},
+        {{"id": "D", "text": "fourth option"}}
+    ],
+    "correct_answer": "A",
     "explanation": "Clear explanation of why the correct answer is right",
+    "difficulty": <integer 1-10 reflecting how hard this specific question is>,
+    "wrong_taunts": [
+        {{"answer": "A", "taunt": "in-character taunt mocking the player for choosing A (only include if A is wrong)"}},
+        {{"answer": "B", "taunt": "in-character taunt mocking the player for choosing B (only include if B is wrong)"}},
+        {{"answer": "C", "taunt": "in-character taunt mocking the player for choosing C (only include if C is wrong)"}},
+        {{"answer": "D", "taunt": "in-character taunt mocking the player for choosing D (only include if D is wrong)"}}
+    ],
     "difficulty_tier": {difficulty_tier},
     "damage_on_correct": {10 * difficulty_tier + 10},
-    "damage_on_wrong": {5 * difficulty_tier + 5},
-    "time_limit_seconds": {max(20, 45 - difficulty_tier * 5)}
+    "damage_on_wrong": {5 * difficulty_tier + 5}
 }}
 """
     response = _model.generate_content(prompt)
