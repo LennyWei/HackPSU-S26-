@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from models import KnowledgeGraph, Boss, Question, AnswerJudgment
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
 _model = genai.GenerativeModel("gemini-2.5-flash")
 
 

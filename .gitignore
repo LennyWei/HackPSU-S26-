@@ -1,7 +1,6 @@
 # ========================
 # Environment & Secrets
 # ========================
-.env
 .env.local
 .env.*.local
 .env.development
@@ -11,6 +10,7 @@
 *.key
 *.p12
 *.pfx
+backend/.env
 
 # ========================
 # Next.js
@@ -55,7 +55,6 @@ var/
 sdist/
 develop-eggs/
 .installed.cfg
-lib/
 lib64/
 .eggs/
 
