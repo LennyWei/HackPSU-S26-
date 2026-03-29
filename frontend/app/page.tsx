@@ -328,6 +328,8 @@ const MODE_DESC: Record<QuestionMode, string>   = {
   both: 'Mixed questions',
 }
 
+const ALL_MODES: QuestionMode[] = ['mcq', 'frq', 'both']
+
 export default function Home() {
   const router    = useRouter()
   const cosmicRef = useRef<CosmicStarfieldHandle>(null)
@@ -337,17 +339,19 @@ export default function Home() {
   const [loading, setLoading]     = useState(false)
   const [warping, setWarping]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
-  const [questionMode, setQuestionMode] = useState<QuestionMode>(() => {
-    if (typeof window === 'undefined') return 'mcq'
-    return (localStorage.getItem('question_mode') as QuestionMode) ?? 'mcq'
-  })
+  const [questionMode, setQuestionMode] = useState<QuestionMode | null>(null)
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedMode = localStorage.getItem('question_mode')
-      localStorage.clear()
-      if (savedMode) localStorage.setItem('question_mode', savedMode)
-    }
+    // Sync from localStorage after hydration — but don't default to anything
+    const saved = localStorage.getItem('question_mode') as QuestionMode | null
+    if (saved && ALL_MODES.includes(saved)) setQuestionMode(saved)
+  }, [])
+
+  useEffect(() => {
+    // Clear stale session data but preserve question_mode
+    const savedMode = localStorage.getItem('question_mode')
+    localStorage.clear()
+    if (savedMode) localStorage.setItem('question_mode', savedMode)
   }, [])
 
   const handleModeChange = (mode: QuestionMode) => {
@@ -423,7 +427,6 @@ export default function Home() {
         fontFamily: 'var(--font-pixel), monospace',
       }}>
         <CosmicStarfield ref={cosmicRef} />
-        <SparkParticles />
 
         {/* CRT scanlines */}
         <div style={{
@@ -445,32 +448,32 @@ export default function Home() {
             ? 'transform 0.75s cubic-bezier(0.4,0,1,1), opacity 0.75s ease-in'
             : 'none',
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', gap: 18,
-          padding: '34px 28px',
-          maxWidth: 520, width: '100%',
+          alignItems: 'center', gap: 22,
+          padding: '44px 40px',
+          maxWidth: 680, width: '100%',
           animation: 'fadeIn 0.55s ease',
         }}>
 
           {/* ── TITLE ── */}
           <div style={{ textAlign: 'center', width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 18, marginBottom: 6 }}>
-              {['STUDY', 'BOSS'].map(word => (
-                <h1 key={word} style={{
-                  margin: 0,
-                  fontSize: 'clamp(12px, 3.2vw, 20px)',
-                  letterSpacing: 5, color: C.cyan,
-                  animation: 'titleFlicker 7s linear infinite',
-                  fontFamily: 'var(--font-pixel), monospace',
-                }}>{word}</h1>
-              ))}
-            </div>
             <h1 style={{
               margin: 0,
-              fontSize: 'clamp(18px, 5vw, 34px)',
-              letterSpacing: 7, color: C.text,
-              animation: 'titlePulse 3s ease-in-out infinite',
+              marginBottom: 8,
+              fontSize: 'clamp(22px, 5.5vw, 42px)',
+              letterSpacing: 6, color: C.cyan,
+              animation: 'titleFlicker 7s linear infinite',
               fontFamily: 'var(--font-pixel), monospace',
-            }}>BATTLE</h1>
+            }}>BRAIN BRAWL</h1>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 4 }}>
+              {['STUDY', 'BOSS', 'BATTLE'].map(word => (
+                <span key={word} style={{
+                  fontSize: 'clamp(10px, 2.4vw, 16px)',
+                  letterSpacing: 4, color: C.text,
+                  animation: 'titlePulse 3s ease-in-out infinite',
+                  fontFamily: 'var(--font-pixel), monospace',
+                }}>{word}</span>
+              ))}
+            </div>
             <p style={{
               marginTop: 10,
               fontSize: 'clamp(5px, 1.2vw, 7px)',
@@ -508,7 +511,7 @@ export default function Home() {
               ── QUESTION MODE
             </div>
             <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-              {(['mcq', 'frq', 'both'] as QuestionMode[]).map(mode => {
+              {ALL_MODES.map(mode => {
                 const active = questionMode === mode
                 return (
                   <button
@@ -522,13 +525,13 @@ export default function Home() {
                   >
                     {/* border layer */}
                     <div style={{
-                      background: active ? C.cyan : C.cyanBorder,
+                      background: active ? C.cyan : '#2a6a7a',
                       clipPath: OCT8, padding: 2,
                       transition: 'background 0.15s',
                     }}>
                       {/* content */}
                       <div style={{
-                        background: active ? C.cyanActiveBg : C.panel,
+                        background: active ? C.cyanActiveBg : '#0d1e24',
                         clipPath: OCT8,
                         display: 'flex', flexDirection: 'column',
                         alignItems: 'center', gap: 5,
@@ -536,8 +539,8 @@ export default function Home() {
                         transition: 'background 0.15s',
                       }}>
                         <span style={{
-                          fontSize: 'clamp(7px, 1.5vw, 9px)',
-                          color: active ? C.cyan : C.lockedBorder,
+                          fontSize: 'clamp(10px, 1.8vw, 13px)',
+                          color: active ? C.cyan : '#7ecede',
                           fontFamily: 'var(--font-pixel), monospace',
                           letterSpacing: 2,
                           transition: 'color 0.15s',
@@ -545,12 +548,12 @@ export default function Home() {
                           {MODE_LABELS[mode]}
                         </span>
                         <span style={{
-                          fontSize: 'clamp(4px, 0.75vw, 5px)',
-                          color: active ? `${C.cyan}bb` : C.lockedBorder,
+                          fontSize: 'clamp(9px, 1.2vw, 11px)',
+                          color: active ? `${C.cyan}bb` : '#5a9aaa',
                           fontFamily: 'var(--font-mono), monospace',
                           letterSpacing: 0,
                           textAlign: 'center',
-                          lineHeight: 1.8,
+                          lineHeight: 1.6,
                           transition: 'color 0.15s',
                         }}>
                           {MODE_DESC[mode]}
