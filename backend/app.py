@@ -114,7 +114,6 @@ def battle_question():
     data = request.get_json(silent=True) or {}
     game = data.get("game", {})
 
-    current_boss    = game.get("currentBoss", {})
     current_cluster = game.get("currentCluster", {})
     difficulty      = game.get("difficulty", "normal")
     weak_spots      = game.get("weakSpots", [])
@@ -122,14 +121,14 @@ def battle_question():
 
     diff_tier = {"easy": 1, "normal": 2, "hard": 3}.get(difficulty, 2)
 
-    prompt = f"""You are {current_boss.get("name", "the Boss")}, a villain in a study game.
-Personality: {current_boss.get("personality", "aggressive")}
+    prompt = f"""Generate a study question for a student.
 Topic: {current_cluster.get("clusterName", "Unknown")}
 Key concepts: {concepts}
 Difficulty tier: {diff_tier}/3
 Player weak spots — prioritize these: {weak_spots if weak_spots else "none yet"}
 
 Generate ONE multiple-choice question about this topic.
+Answer options must be as short as the answer naturally allows. If the answer is a name, term, or single fact, the option text should be just that — no descriptions or explanations attached. Only use longer option text if the question itself requires a multi-part answer (e.g. a definition or process). Match the length of all four options to each other.
 Return ONLY valid JSON with no markdown fences:
 {{
     "id": "q_{os.urandom(4).hex()}",
