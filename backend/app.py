@@ -5,6 +5,7 @@ Matches the contract expected by the Next.js frontend.
 
 import os
 import base64
+import random
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from game_engine import create_game, start_run, summon_boss, next_boss, get_session
@@ -112,7 +113,8 @@ def upload():
 @app.route("/battle/question", methods=["POST"])
 def battle_question():
     data = request.get_json(silent=True) or {}
-    game = data.get("game", {})
+    game          = data.get("game", {})
+    question_mode = data.get("question_mode", "mcq")   # 'mcq' | 'frq' | 'both'
 
     current_cluster = game.get("currentCluster", {})
     difficulty      = game.get("difficulty", "normal")
@@ -121,17 +123,48 @@ def battle_question():
 
     diff_tier = {"easy": 1, "normal": 2, "hard": 3}.get(difficulty, 2)
 
-    prompt = f"""Generate a study question for a student.
-Topic: {current_cluster.get("clusterName", "Unknown")}
+    # Resolve 'both' to a concrete type
+    if question_mode == "both":
+        use_frq = random.random() < 0.5
+    else:
+        use_frq = question_mode == "frq"
+
+    topic     = current_cluster.get("clusterName", "Unknown")
+    weak_text = str(weak_spots) if weak_spots else "none yet"
+
+    if use_frq:
+        prompt = f"""Generate a free-response study question for a student.
+Topic: {topic}
 Key concepts: {concepts}
 Difficulty tier: {diff_tier}/3
-Player weak spots — prioritize these: {weak_spots if weak_spots else "none yet"}
+Player weak spots — prioritize these: {weak_text}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+    "id": "q_{os.urandom(4).hex()}",
+    "question_type": "free_response",
+    "dialogue": "In-character villain intro before posing the question (1-2 sentences)",
+    "question_text": "The full open-ended question (requires a written answer)",
+    "options": [],
+    "correct_answer": "A complete model answer covering all key points a correct response must include",
+    "explanation": "What makes a strong answer to this question",
+    "concept": "the specific concept being tested",
+    "difficulty": <integer 1-10>,
+    "wrong_taunts": []
+}}"""
+    else:
+        prompt = f"""Generate a study question for a student.
+Topic: {topic}
+Key concepts: {concepts}
+Difficulty tier: {diff_tier}/3
+Player weak spots — prioritize these: {weak_text}
 
 Generate ONE multiple-choice question about this topic.
 Answer options must be as short as the answer naturally allows. If the answer is a name, term, or single fact, the option text should be just that — no descriptions or explanations attached. Only use longer option text if the question itself requires a multi-part answer (e.g. a definition or process). Match the length of all four options to each other.
 Return ONLY valid JSON with no markdown fences:
 {{
     "id": "q_{os.urandom(4).hex()}",
+    "question_type": "mcq",
     "dialogue": "In-character intro before asking the question (1-2 sentences)",
     "question_text": "The full question text",
     "options": [
@@ -195,6 +228,46 @@ Return ONLY valid JSON with no markdown fences:
 Rules:
 - If correct:   damage=30, playerDamage=0,  scoreGained=100
 - If incorrect: damage=0,  playerDamage=20, scoreGained=0"""
+
+    try:
+        response = _client.models.generate_content(model=_MODEL, contents=prompt)
+        result = _parse_json(response.text or "")
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /battle/judge
+# Judges a free-response answer with Gemini acting as teacher.
+# ---------------------------------------------------------------------------
+
+@app.route("/battle/judge", methods=["POST"])
+def battle_judge():
+    data          = request.get_json(silent=True) or {}
+    player_answer = data.get("player_answer", "")
+    question_text = data.get("question_text", "")
+    model_answer  = data.get("model_answer", "")
+    game          = data.get("game", {})
+    current_boss  = game.get("currentBoss", {})
+
+    prompt = f"""You are {current_boss.get("name", "the Boss")}, a villain with a {current_boss.get("personality", "aggressive")} personality.
+Evaluate the student's free-response answer and react in character.
+
+Question: {question_text}
+Model answer (key points that must be covered): {model_answer}
+Player's answer: {player_answer}
+
+Grading criteria:
+- is_correct: true if the answer covers the essential concepts, even if worded differently
+- Be generous with paraphrasing — penalize only factual errors or missing critical concepts
+
+Return ONLY valid JSON with no markdown fences:
+{{
+    "is_correct": true or false,
+    "explanation": "What was right/wrong and what the ideal answer covers (2-3 sentences)",
+    "boss_dialogue": "Your in-character reaction to the answer (2 sentences, stay in villain persona)"
+}}"""
 
     try:
         response = _client.models.generate_content(model=_MODEL, contents=prompt)

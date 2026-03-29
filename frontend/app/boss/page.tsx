@@ -228,8 +228,6 @@ export default function BossPage() {
             !! WARNING !!
           </div>
 
-          {/* Boss sprite */}
-          <BossSprite category={category} entered={phase !== 'entering'} />
 
           {/* Name */}
           {(phase === 'name' || phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
@@ -271,8 +269,8 @@ export default function BossPage() {
             </div>
           )}
 
-          {/* CTA */}
-          {phase === 'ready' && (
+          {/* CTA — appears as soon as the HP bar shows, before the monologue text */}
+          {(phase === 'hp' || phase === 'monologue' || phase === 'ready') && (
             <button
               style={{
                 fontFamily: 'var(--font-pixel), monospace',
@@ -289,7 +287,7 @@ export default function BossPage() {
               onMouseLeave={() => setBtnHover(false)}
               onClick={() => router.push('/battle')}
             >
-              ► PREPARE FOR BATTLE ◄
+              ► BATTLE ◄
             </button>
           )}
         </div>

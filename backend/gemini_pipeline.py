@@ -124,7 +124,7 @@ Return ONLY valid JSON with no markdown fences:
 # Call 3 — Generate an Adaptive Question
 # ---------------------------------------------------------------------------
 
-def call_3_generate_question(session, boss) -> Question:
+def call_3_generate_question(session, boss, free_response: bool = False) -> Question:
     """Generate the next question, adapting to the player's weak spots and difficulty."""
     run = session.current_run
     kg = session.knowledge_graph
@@ -141,7 +141,35 @@ def call_3_generate_question(session, boss) -> Question:
         for t in topics
     )
 
-    prompt = f"""You are {boss.name}, a villain boss in a study game. Generate ONE question for the player.
+    if free_response:
+        prompt = f"""You are {boss.name}, a villain boss in a study game. Generate ONE free-response question for the player.
+
+Topics being tested:
+{topic_text}
+
+Difficulty tier: {difficulty_tier} out of 5
+Player's weak spots — prioritize these if possible: {weak_spots if weak_spots else "none identified yet"}
+Concepts already asked — do not repeat: {asked_concepts if asked_concepts else "none yet"}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+    "id": "short unique id like q1, q2...",
+    "topic_id": "{topics[0].id if topics else ''}",
+    "concept": "the specific concept this question tests",
+    "question_text": "The full question text (open-ended, requires a written answer)",
+    "question_type": "free_response",
+    "options": [],
+    "correct_answer": "A complete model answer covering all key points a correct response must include",
+    "explanation": "Clear explanation of what makes a strong answer",
+    "difficulty": <integer 1-10 reflecting how hard this specific question is>,
+    "wrong_taunts": [],
+    "difficulty_tier": {difficulty_tier},
+    "damage_on_correct": {10 * difficulty_tier + 10},
+    "damage_on_wrong": {5 * difficulty_tier + 5}
+}}
+"""
+    else:
+        prompt = f"""You are {boss.name}, a villain boss in a study game. Generate ONE question for the player.
 
 Topics being tested:
 {topic_text}
@@ -188,7 +216,31 @@ Return ONLY valid JSON with no markdown fences:
 
 def call_4_judge_answer(player_answer: str, question: Question, boss, session) -> AnswerJudgment:
     """Judge the player's answer and return the boss's reaction."""
-    prompt = f"""You are {boss.name}, a villain boss with a {boss.personality} personality.
+    if question.question_type == "free_response":
+        prompt = f"""You are {boss.name}, a villain boss with a {boss.personality} personality.
+Evaluate the student's free-response answer and react in character.
+
+Question: {question.question_text}
+Model answer (key points that must be covered): {question.correct_answer}
+Player's answer: {player_answer}
+
+Grading criteria:
+- "is_correct": true if the answer covers the essential concepts, even if worded differently
+- "partial_credit": true if the answer is partially correct (covers some but not all key points)
+- Be generous with paraphrasing — penalize only factual errors or missing critical concepts
+
+Return ONLY valid JSON with no markdown fences:
+{{
+    "is_correct": true or false,
+    "partial_credit": true or false,
+    "boss_dialogue": "Your in-character reaction to the answer (2 sentences, stay in villain persona)",
+    "explanation": "Brief explanation of what was right/wrong and what the ideal answer covers",
+    "concept_mastered": true if the player answered correctly,
+    "add_to_weak_spots": true if the player answered incorrectly or only partially
+}}
+"""
+    else:
+        prompt = f"""You are {boss.name}, a villain boss with a {boss.personality} personality.
 Judge the student's answer and react in character.
 
 Question: {question.question_text}

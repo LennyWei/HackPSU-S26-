@@ -43,7 +43,7 @@ function TrophySprite() {
         <div key={r} style={{ display: 'flex' }}>
           {row.map((cell, c) => (
             <div key={c} style={{
-              width: 16, height: 16,
+              width: 24, height: 24,
               backgroundColor: cell === 1 ? '#7a6030' : cell === 2 ? C.gold : 'transparent',
               boxShadow: cell ? `0 0 3px ${C.gold}55` : 'none',
             }} />
@@ -76,7 +76,7 @@ function SkullSprite() {
         <div key={r} style={{ display: 'flex' }}>
           {row.map((cell, c) => (
             <div key={c} style={{
-              width: 14, height: 14,
+              width: 22, height: 22,
               backgroundColor:
                 cell === 1 ? C.red :
                 cell === 2 ? '#111' :
@@ -164,10 +164,10 @@ function StatRow({ label, value, color, delay }: {
       padding: '7px 0', borderBottom: `1px solid ${C.border}`,
       animation: `fadeSlideUp 0.4s ease ${delay}s both`,
     }}>
-      <span style={{ fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim, letterSpacing: 2 }}>
+      <span style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2 }}>
         {label}
       </span>
-      <span style={{ fontSize: 'clamp(5px, 1.1vw, 7px)', color, letterSpacing: 1 }}>
+      <span style={{ fontSize: 'clamp(9px, 1vw, 11px)', color, letterSpacing: 1 }}>
         {value}
       </span>
     </div>
@@ -181,7 +181,7 @@ function ConceptChip({ name, correct }: { name: string; correct: boolean }) {
       display: 'inline-block', padding: '4px 10px', margin: '3px',
       border: `1px solid ${correct ? C.green : C.red}66`,
       backgroundColor: correct ? '#0a1a0e' : '#1a0a0a',
-      fontSize: 'clamp(4px, 0.8vw, 5px)',
+      fontSize: 'clamp(8px, 0.85vw, 10px)',
       color: correct ? C.greenHi : C.redHi,
       letterSpacing: 1,
     }}>{name}</div>
@@ -226,7 +226,7 @@ function QuestionCard({ result, idx }: {
       >
         {/* Round number */}
         <span style={{
-          fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim,
+          fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim,
           letterSpacing: 1, flexShrink: 0, paddingTop: 1,
         }}>
           #{String(idx + 1).padStart(2, '0')}
@@ -234,7 +234,7 @@ function QuestionCard({ result, idx }: {
 
         {/* Result badge */}
         <span style={{
-          fontSize: 'clamp(5px, 1vw, 7px)', color: hiColor,
+          fontSize: 'clamp(10px, 1vw, 12px)', color: hiColor,
           flexShrink: 0, letterSpacing: 1,
         }}>
           {correct ? '✓' : '✗'}
@@ -242,7 +242,7 @@ function QuestionCard({ result, idx }: {
 
         {/* Question stem */}
         <span style={{
-          flex: 1, fontSize: 'clamp(5px, 1vw, 7px)', color: C.text,
+          flex: 1, fontSize: 'clamp(9px, 0.95vw, 11px)', color: C.text,
           lineHeight: 1.8,
           overflow: 'hidden', textOverflow: 'ellipsis',
           whiteSpace: expanded ? 'normal' : 'nowrap',
@@ -252,7 +252,7 @@ function QuestionCard({ result, idx }: {
 
         {/* Damage tag */}
         <span style={{
-          fontSize: 'clamp(4px, 0.8vw, 5px)',
+          fontSize: 'clamp(8px, 0.85vw, 10px)',
           color: correct ? C.green : C.red,
           flexShrink: 0, letterSpacing: 1,
           paddingTop: 1,
@@ -262,7 +262,7 @@ function QuestionCard({ result, idx }: {
 
         {/* Expand chevron */}
         <span style={{
-          fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim,
+          fontSize: 'clamp(9px, 0.9vw, 11px)', color: C.textDim,
           flexShrink: 0, transition: 'transform 0.2s',
           transform: expanded ? 'rotate(180deg)' : 'none',
         }}>▾</span>
@@ -279,7 +279,7 @@ function QuestionCard({ result, idx }: {
           {opts.length > 0 && (
             <div style={{ paddingTop: 10 }}>
               <div style={{
-                fontSize: 'clamp(3px, 0.7vw, 5px)', color: C.textDim,
+                fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim,
                 letterSpacing: 2, marginBottom: 6,
               }}>CHOICES</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -288,7 +288,7 @@ function QuestionCard({ result, idx }: {
                   const answered = result.playerAnswer.trim().toUpperCase().startsWith(letter)
                   return (
                     <div key={i} style={{
-                      fontSize: 'clamp(5px, 1vw, 6px)',
+                      fontSize: 'clamp(9px, 0.95vw, 11px)',
                       color: answered ? hiColor : C.textDim,
                       letterSpacing: 1, lineHeight: 1.8,
                       paddingLeft: 8,
@@ -296,7 +296,7 @@ function QuestionCard({ result, idx }: {
                     }}>
                       {opt.trim()}
                       {answered && (
-                        <span style={{ marginLeft: 8, fontSize: 'clamp(3px, 0.7vw, 4px)', color: hiColor }}>
+                        <span style={{ marginLeft: 8, fontSize: 'clamp(7px, 0.8vw, 9px)', color: hiColor }}>
                           ← YOUR ANSWER
                         </span>
                       )}
@@ -311,11 +311,11 @@ function QuestionCard({ result, idx }: {
           {opts.length === 0 && (
             <div style={{ paddingTop: 10 }}>
               <div style={{
-                fontSize: 'clamp(3px, 0.7vw, 5px)', color: C.textDim,
+                fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim,
                 letterSpacing: 2, marginBottom: 4,
               }}>YOUR ANSWER</div>
               <div style={{
-                fontSize: 'clamp(5px, 1vw, 7px)', color: hiColor,
+                fontSize: 'clamp(9px, 0.95vw, 11px)', color: hiColor,
                 lineHeight: 1.8, letterSpacing: 1,
               }}>
                 {result.playerAnswer}
@@ -327,11 +327,11 @@ function QuestionCard({ result, idx }: {
           {result.explanation && (
             <div>
               <div style={{
-                fontSize: 'clamp(3px, 0.7vw, 5px)', color: C.textDim,
+                fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim,
                 letterSpacing: 2, marginBottom: 4,
               }}>EXPLANATION</div>
               <div style={{
-                fontSize: 'clamp(5px, 1vw, 7px)', color: C.text,
+                fontSize: 'clamp(9px, 0.95vw, 11px)', color: C.text,
                 lineHeight: 2, letterSpacing: 0.5,
               }}>
                 {result.explanation}
@@ -344,11 +344,11 @@ function QuestionCard({ result, idx }: {
             display: 'flex', alignItems: 'center', gap: 8,
             borderTop: `1px solid ${C.border}`, paddingTop: 8,
           }}>
-            <span style={{ fontSize: 'clamp(3px, 0.7vw, 5px)', color: C.textDim, letterSpacing: 2 }}>
+            <span style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2 }}>
               CONCEPT
             </span>
             <span style={{
-              fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.accent,
+              fontSize: 'clamp(9px, 0.95vw, 11px)', color: C.accent,
               letterSpacing: 1,
             }}>
               {result.conceptName}
@@ -365,7 +365,7 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
   return (
     <button onClick={onClick} style={{
       fontFamily: 'var(--font-pixel), monospace',
-      fontSize: 'clamp(5px, 1.3vw, 8px)', letterSpacing: 2,
+      fontSize: 'clamp(9px, 1vw, 11px)', letterSpacing: 2,
       color: active ? C.bg : C.textDim,
       backgroundColor: active ? C.gold : 'transparent',
       border: `1px solid ${active ? C.gold : C.border}`,
@@ -479,8 +479,8 @@ function ResultContent() {
         <div style={{
           position: 'relative', zIndex: 2,
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          maxWidth: 560, width: '100%', margin: '0 auto',
-          padding: '20px 16px 40px', gap: 16,
+          maxWidth: 720, width: '100%', margin: '0 auto',
+          padding: '16px 24px 28px', gap: 12,
         }}>
 
           {/* ── Sprite + Title ── */}
@@ -492,26 +492,26 @@ function ResultContent() {
                 <>
 
                   <h1 style={{
-                    margin: 0, fontSize: 'clamp(14px, 4vw, 24px)', color: C.gold, letterSpacing: 4,
+                    margin: 0, fontSize: 'clamp(20px, 4vw, 34px)', color: C.gold, letterSpacing: 4,
                     animation: 'titleReveal 0.65s cubic-bezier(0.175,0.885,0.32,1.275) both, titlePulse 3s ease-in-out 0.65s infinite',
                   }}>VICTORY!</h1>
-                  <div style={{ marginTop: 10, fontSize: 'clamp(4px, 0.9vw, 6px)', color: C.greenHi, letterSpacing: 4, animation: 'floatSprite 2.2s ease-in-out infinite' }}>
+                  <div style={{ marginTop: 10, fontSize: 'clamp(9px, 1vw, 11px)', color: C.greenHi, letterSpacing: 4, animation: 'floatSprite 2.2s ease-in-out infinite' }}>
                     ★ THE GAUNTLET IS YOURS ★
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim, letterSpacing: 4, marginBottom: 10 }}>
+                  <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 4, marginBottom: 10 }}>
                     {currentBoss ? `FALLEN TO ${currentBoss.name.toUpperCase()}` : 'THE GAUNTLET CLAIMS ANOTHER'}
                   </div>
                   <h1 style={{
-                    margin: 0, fontSize: 'clamp(14px, 4vw, 24px)', color: C.redHi, letterSpacing: 4,
+                    margin: 0, fontSize: 'clamp(20px, 4vw, 34px)', color: C.redHi, letterSpacing: 4,
                     animation: 'titleReveal 0.55s cubic-bezier(0.175,0.885,0.32,1.275) both, defeatFlash 1.8s ease-in-out 0.55s infinite',
                   }}>GAME OVER</h1>
                   <div style={{ marginTop: 14 }}>
                     <PixelExplosion />
                   </div>
-                  <div style={{ marginTop: -50, fontSize: 'clamp(4px, 0.9vw, 6px)', color: C.textDim, letterSpacing: 3 }}>
+                  <div style={{ marginTop: -50, fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 3 }}>
                     {bossesDefeated > 0
                       ? `YOU CLEARED ${bossesDefeated} STAGE${bossesDefeated !== 1 ? 'S' : ''}`
                       : 'STUDY HARDER AND TRY AGAIN'}
@@ -525,7 +525,7 @@ function ResultContent() {
           <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${accentColor}66, transparent)` }} />
 
           {/* ── Score quick stats ── */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 'clamp(5px, 1.2vw, 7px)', animation: 'scoreReveal 0.5s ease 0.4s both' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 28, fontSize: 'clamp(9px, 1.1vw, 12px)', animation: 'scoreReveal 0.5s ease 0.4s both' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: C.textDim, letterSpacing: 2, marginBottom: 3 }}>SCORE</div>
               <div style={{ color: C.gold }}><ScoreCounter target={score} /></div>
@@ -554,7 +554,7 @@ function ResultContent() {
               <div style={{ position: 'relative', border: `1px solid ${C.border}`, backgroundColor: C.panel, padding: '14px 16px' }}>
                 <PixelCorner pos="tl" color={C.borderHi} />
                 <PixelCorner pos="br" color={C.borderHi} />
-                <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>── BATTLE STATS ──</div>
+                <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2, marginBottom: 8 }}>── BATTLE STATS ──</div>
                 <StatRow label="ACCURACY"       value={`${accuracy}%`}                                        color={accuracy >= 70 ? C.greenHi : accuracy >= 40 ? C.gold : C.redHi} delay={0} />
                 <StatRow label="TOTAL ROUNDS"   value={String(lastBossResults.length)}                        color={C.accent}   delay={0.05} />
                 <StatRow label="CORRECT"        value={`${correct} / ${lastBossResults.length}`}              color={C.greenHi}  delay={0.10} />
@@ -567,11 +567,11 @@ function ResultContent() {
               <div style={{ position: 'relative', border: `1px solid ${C.border}`, backgroundColor: C.panel, padding: '14px 16px', textAlign: 'center' }}>
                 <PixelCorner pos="tl" color={C.borderHi} />
                 <PixelCorner pos="br" color={C.borderHi} />
-                <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>BOSS RUSH PROGRESS</div>
-                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.textDim, letterSpacing: 2, marginBottom: 10 }}>BOSS RUSH PROGRESS</div>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                   {Array.from({ length: totalBosses }, (_, i) => (
                     <div key={i} style={{
-                      width: 20, height: 20,
+                      width: 24, height: 24,
                       backgroundColor: i < bossesDefeated ? C.green : i === bossesDefeated && !isVictory ? C.red : C.panel,
                       boxShadow: i < bossesDefeated ? `0 0 4px ${C.green}66` : 'none',
                       border: i === bossesDefeated && !isVictory ? `2px solid ${C.redHi}` : `1px solid ${C.border}`,
@@ -579,7 +579,7 @@ function ResultContent() {
                     }} />
                   ))}
                 </div>
-                <div style={{ marginTop: 8, fontSize: 'clamp(4px, 1vw, 6px)', color: isVictory ? C.greenHi : C.textDim, letterSpacing: 2 }}>
+                <div style={{ marginTop: 8, fontSize: 'clamp(9px, 1vw, 11px)', color: isVictory ? C.greenHi : C.textDim, letterSpacing: 2 }}>
                   {bossesDefeated} / {totalBosses} BOSSES DEFEATED
                 </div>
               </div>
@@ -592,14 +592,14 @@ function ResultContent() {
 
                   {uniqueMastered.length > 0 && (
                     <div style={{ marginBottom: uniqueWrong.length > 0 ? 12 : 0 }}>
-                      <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.greenHi, letterSpacing: 2, marginBottom: 8 }}>── MASTERED ──</div>
+                      <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.greenHi, letterSpacing: 2, marginBottom: 8 }}>── MASTERED ──</div>
                       <div>{uniqueMastered.map((c, i) => <ConceptChip key={i} name={c} correct={true} />)}</div>
                     </div>
                   )}
 
                   {uniqueWrong.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 'clamp(4px, 0.8vw, 5px)', color: C.redHi, letterSpacing: 2, marginBottom: 8 }}>
+                      <div style={{ fontSize: 'clamp(8px, 0.85vw, 10px)', color: C.redHi, letterSpacing: 2, marginBottom: 8 }}>
                         {isVictory ? '── REVISIT THESE ──' : '── STUDY BEFORE NEXT RUN ──'}
                       </div>
                       <div>{uniqueWrong.map((c, i) => <ConceptChip key={i} name={c} correct={false} />)}</div>
@@ -607,7 +607,7 @@ function ResultContent() {
                   )}
 
                   {weakSpots.length > 0 && (
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 'clamp(4px, 0.85vw, 6px)', color: C.textDim, lineHeight: 2, letterSpacing: 1 }}>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, lineHeight: 2, letterSpacing: 1 }}>
                       <span style={{ color: C.gold, letterSpacing: 2 }}>IDENTIFIED WEAK SPOTS: </span>
                       {weakSpots.join(' · ')}
                     </div>
@@ -638,12 +638,12 @@ function ResultContent() {
           {/* ── Review tab ── */}
           {tab === 'review' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, marginBottom: 4 }}>
+              <div style={{ fontSize: 'clamp(9px, 1vw, 11px)', color: C.textDim, letterSpacing: 2, marginBottom: 4 }}>
                 TAP A CARD TO SEE THE IN-DEPTH EXPLANATION
               </div>
 
               {lastBossResults.length === 0 ? (
-                <div style={{ textAlign: 'center', fontSize: 'clamp(6px, 1.5vw, 9px)', color: C.textDim, padding: 40 }}>
+                <div style={{ textAlign: 'center', fontSize: 'clamp(11px, 1.4vw, 13px)', color: C.textDim, padding: 40 }}>
                   NO QUESTIONS ON RECORD
                 </div>
               ) : (

@@ -199,7 +199,7 @@ export async function uploadPDF(pdfBase64: string): Promise<InitGameResponse> {
   }
 }
 
-export async function streamQuestion(game: GameState): Promise<Response> {
+export async function streamQuestion(game: GameState, questionMode = 'mcq'): Promise<Response> {
   if (USE_MOCK) {
     await sleep(350)
     return responseFromText(buildMockQuestion(game))
@@ -209,7 +209,7 @@ export async function streamQuestion(game: GameState): Promise<Response> {
     const res = await fetch(`${API_BASE}/battle/question`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ game: safeGameSnapshot(game) }),
+      body: JSON.stringify({ game: safeGameSnapshot(game), question_mode: questionMode }),
     })
 
     if (!res.ok) {
@@ -220,6 +220,46 @@ export async function streamQuestion(game: GameState): Promise<Response> {
   } catch {
     return responseFromText(buildMockQuestion(game))
   }
+}
+
+export interface JudgeResult {
+  is_correct: boolean
+  explanation: string
+  boss_dialogue: string
+}
+
+export async function judgeAnswer(
+  playerAnswer: string,
+  questionText: string,
+  modelAnswer: string,
+  game: GameState,
+): Promise<JudgeResult> {
+  if (USE_MOCK) {
+    await sleep(600)
+    const correct = playerAnswer.trim().length > 20
+    return {
+      is_correct: correct,
+      explanation: correct
+        ? 'Good answer — you covered the key points.'
+        : 'Your answer missed the core concepts. Review your notes.',
+      boss_dialogue: correct
+        ? 'Hmm. Impressive. You actually know your material.'
+        : 'Pathetic. That answer belongs in a trash compactor.',
+    }
+  }
+
+  const res = await fetch(`${API_BASE}/battle/judge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_answer: playerAnswer,
+      question_text: questionText,
+      model_answer:  modelAnswer,
+      game:          safeGameSnapshot(game),
+    }),
+  })
+  if (!res.ok) throw new Error(`Judge request failed with status ${res.status}`)
+  return res.json() as Promise<JudgeResult>
 }
 
 export async function streamAnswer(answer: string, question: string, game: GameState): Promise<Response> {

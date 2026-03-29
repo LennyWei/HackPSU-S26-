@@ -220,6 +220,19 @@ function LoadingScreen({ pdfBase64, onReady, onError }: {
 /* ─────────────────────────────────────────────
    HOME PAGE
 ───────────────────────────────────────────── */
+type QuestionMode = 'mcq' | 'frq' | 'both'
+
+const MODE_LABELS: Record<QuestionMode, string> = {
+  mcq:  'MCQ',
+  frq:  'FRQ',
+  both: 'BOTH',
+}
+const MODE_DESC: Record<QuestionMode, string> = {
+  mcq:  'Multiple choice only',
+  frq:  'Free response only',
+  both: 'Mixed questions',
+}
+
 export default function Home() {
   const router    = useRouter()
   const cosmicRef = useRef<CosmicStarfieldHandle>(null)
@@ -228,6 +241,15 @@ export default function Home() {
   const [loading, setLoading]     = useState(false)
   const [warping, setWarping]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
+  const [questionMode, setQuestionMode] = useState<QuestionMode>(() => {
+    if (typeof window === 'undefined') return 'mcq'
+    return (localStorage.getItem('question_mode') as QuestionMode) ?? 'mcq'
+  })
+
+  const handleModeChange = (mode: QuestionMode) => {
+    setQuestionMode(mode)
+    localStorage.setItem('question_mode', mode)
+  }
 
   const handleFiles = (incoming: File[]) => {
     setFiles(incoming)
@@ -333,6 +355,44 @@ export default function Home() {
 
           <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2, textAlign: 'center' }}>
             BEST WITH 5–50 PAGES · PDF FORMAT ONLY
+          </div>
+
+          <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
+
+          {/* Question mode selector */}
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 'clamp(4px, 1vw, 6px)', color: C.textDim, letterSpacing: 2 }}>
+              ── QUESTION MODE
+            </div>
+            <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+              {(['mcq', 'frq', 'both'] as QuestionMode[]).map(mode => {
+                const active = questionMode === mode
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => handleModeChange(mode)}
+                    style={{
+                      flex: 1,
+                      fontFamily: 'var(--font-pixel), monospace',
+                      fontSize: 'clamp(6px, 1.4vw, 9px)',
+                      letterSpacing: 2,
+                      padding: '10px 0',
+                      cursor: 'pointer',
+                      border: `1px solid ${active ? C.accent : C.border}`,
+                      backgroundColor: active ? `${C.accent}22` : C.panel,
+                      color: active ? C.accent : C.textDim,
+                      transition: 'all 0.15s',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    }}
+                    onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = C.borderHi; e.currentTarget.style.color = C.text } }}
+                    onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textDim } }}
+                  >
+                    <span>{MODE_LABELS[mode]}</span>
+                    <span style={{ fontSize: 'clamp(3px, 0.7vw, 5px)', color: active ? `${C.accent}bb` : C.textDim, letterSpacing: 1 }}>{MODE_DESC[mode]}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <div style={{ width: '100%', height: 1, background: `linear-gradient(90deg, transparent, ${C.border}, transparent)` }} />
