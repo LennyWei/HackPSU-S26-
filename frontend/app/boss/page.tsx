@@ -304,7 +304,7 @@ export default function BossPage() {
               onMouseEnter={() => setBtnHover(true)}
               onMouseLeave={() => setBtnHover(false)}
               onClick={() => {
-                emitSfx({ name: 'riser.wav', volume: 0.42 })
+                emitSfx({ name: 'riser.wav', volume: 0.105 })
                 window.setTimeout(() => router.push('/battle'), 110)
               }}
             >

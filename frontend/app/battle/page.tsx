@@ -324,7 +324,26 @@ function HpBar({ value, max, color, height = 7, segments = false }: {
   value: number; max: number; color: string; height?: number; segments?: boolean
 }) {
   const pct = Math.max(0, (value / max) * 100)
+  const [chipPct, setChipPct] = useState(pct)
+  const prevPctRef = useRef(pct)
   const low = pct < 30
+
+  useEffect(() => {
+    const prevPct = prevPctRef.current
+    prevPctRef.current = pct
+
+    if (pct >= prevPct) {
+      setChipPct(pct)
+      return
+    }
+
+    setChipPct(prevPct)
+    const t = window.setTimeout(() => {
+      setChipPct(pct)
+    }, 160)
+
+    return () => window.clearTimeout(t)
+  }, [pct])
 
   // dynamic color: cyan/green → yellow → red as HP drops
   const barColor = low
@@ -339,12 +358,29 @@ function HpBar({ value, max, color, height = 7, segments = false }: {
         height, backgroundColor: '#050505',
         border: `1px solid ${barColor}33`, overflow: 'hidden', position: 'relative',
       }}>
+        {/* Delayed chip bar (Souls-like): lags briefly after taking damage. */}
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          height: '100%',
+          width: `${chipPct}%`,
+          backgroundColor: '#ff8a33',
+          opacity: 0.9,
+          transition: 'width 0.65s linear',
+          zIndex: 1,
+        }} />
+
         {/* Main fill */}
         <div style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
           height: '100%', width: `${pct}%`, backgroundColor: barColor,
           boxShadow: `0 0 ${low ? 14 : 6}px ${barColor}99`,
           transition: 'width 0.4s ease, background-color 0.6s ease',
           animation: low ? 'hpPulse 0.5s ease-in-out infinite' : 'none',
+          zIndex: 2,
         }} />
         {/* Segment dividers */}
         {segments && Array.from({ length: 9 }, (_, i) => (
@@ -353,16 +389,26 @@ function HpBar({ value, max, color, height = 7, segments = false }: {
             left: `${(i + 1) * 10}%`,
             width: 1, backgroundColor: '#00000055',
             pointerEvents: 'none',
+            zIndex: 3,
           }} />
         ))}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-        <span style={{ fontSize: 'clamp(4px, 0.7vw, 6px)', color: barColor, fontFamily: 'var(--font-pixel), monospace', opacity: 0.7 }}>
-          {Math.max(0, value)}
-        </span>
-        <span style={{ fontSize: 'clamp(4px, 0.7vw, 6px)', color: '#333', fontFamily: 'var(--font-pixel), monospace' }}>
-          {max}
-        </span>
+
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: height >= 16 ? 'clamp(7px, 0.8vw, 10px)' : 'clamp(6px, 0.7vw, 9px)',
+          color: '#ffffff',
+          fontFamily: 'var(--font-pixel), monospace',
+          letterSpacing: 1,
+          textShadow: '0 0 6px #000, 0 0 10px #000',
+          zIndex: 4,
+          pointerEvents: 'none',
+        }}>
+          {Math.max(0, value)} / {max}
+        </div>
       </div>
     </div>
   )
@@ -483,7 +529,10 @@ function CaseOpening({ item, inventoryFull, onCollect }: {
             </div>
           ) : (
             <button
-              onClick={onCollect}
+              onClick={() => {
+                emitSfx({ name: 'pickupitem.wav', volume: 0.42, minRate: 0.95, maxRate: 1.05 })
+                onCollect()
+              }}
               style={{ fontFamily: 'var(--font-pixel), monospace', fontSize: 'clamp(6px, 1vw, 8px)', letterSpacing: 3, color: '#39FF14', backgroundColor: '#001800', border: '1px solid #39FF1466', padding: '10px 30px', cursor: 'pointer', textShadow: '0 0 8px #39FF1488', boxShadow: '0 0 14px #39FF1422', transition: 'all 0.15s' }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#003300'; e.currentTarget.style.borderColor = '#39FF14' }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#001800'; e.currentTarget.style.borderColor = '#39FF1466' }}
@@ -900,6 +949,7 @@ function BattleUI() {
 
   const wrongTaunt = ((isReveal || isExplanation) && !state.isCorrect && state.selectedAnswer && !isFrq)
     ? q?.wrong_taunts.find(t => t.answer === state.selectedAnswer)?.taunt : undefined
+
   const dialogue = (isFrq && frqResult?.bossDialogue && (isReveal || isExplanation))
     ? frqResult.bossDialogue
     : (wrongTaunt ?? q?.dialogue ?? '')
@@ -1002,10 +1052,10 @@ function BattleUI() {
           </div>
 
           {/* Score — top right */}
-          <div style={{ position: 'absolute', top: 12, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 'clamp(5px, 0.9vw, 7px)', color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px #FFD70055' }}>{game.score.toLocaleString()} <span style={{ color: '#443300' }}>PTS</span></div>
-            <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#555', letterSpacing: 2 }}>BOSS <span style={{ color: '#9966ff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#2a2a2a' }}>/{game.totalBosses}</span></div>
-            <div style={{ fontSize: 'clamp(4px, 0.8vw, 6px)', color: '#333', letterSpacing: 2 }}>STREAK <span style={{ color: state.correctStreak > 0 ? '#FFD700' : '#555' }}>{state.correctStreak}</span></div>
+          <div style={{ position: 'absolute', top: 10, right: 14, textAlign: 'right', zIndex: 5, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 'clamp(7px, 1.1vw, 10px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>{game.score.toLocaleString()} <span style={{ color: '#ffffff' }}>PTS</span></div>
+            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>BOSS <span style={{ color: '#ffffff' }}>{game.currentBossIndex + 1}</span><span style={{ color: '#ffffff' }}>/{game.totalBosses}</span></div>
+            <div style={{ fontSize: 'clamp(6px, 1vw, 9px)', color: '#ffffff', letterSpacing: 2, textShadow: '0 0 8px #000000cc' }}>STREAK <span style={{ color: '#ffffff' }}>{state.correctStreak}</span></div>
           </div>
 
           {/* Boss sprite — unified component handling idle, swoop, and shake */}
@@ -1053,7 +1103,11 @@ function BattleUI() {
                   key={slotIdx}
                   onMouseEnter={() => setHoveredSlot(slotIdx)}
                   onMouseLeave={() => setHoveredSlot(null)}
-                  onClick={() => { if (canUse) combat.useItem(item) }}
+                  onClick={() => {
+                    if (!canUse) return
+                    emitSfx({ name: 'useItem.wav', volume: 0.4, minRate: 0.96, maxRate: 1.06 })
+                    combat.useItem(item)
+                  }}
                   style={{
                     position: 'relative',
                     width: 46, height: 46,
