@@ -31,7 +31,11 @@ export interface ParticlesHandle {
   burst: (x: number, y: number, opts?: BurstOptions) => void
 }
 
-const Particles = forwardRef<ParticlesHandle>(function Particles(_, ref) {
+interface ParticlesProps {
+  zIndex?: number
+}
+
+const Particles = forwardRef<ParticlesHandle, ParticlesProps>(function Particles({ zIndex = 9999 }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const particles = useRef<Particle[]>([])
   const rafRef    = useRef<number>(0)
@@ -134,7 +138,7 @@ const Particles = forwardRef<ParticlesHandle>(function Particles(_, ref) {
         position: 'fixed',
         inset: 0,
         pointerEvents: 'none',
-        zIndex: 9999,
+        zIndex,
       }}
     />
   )
