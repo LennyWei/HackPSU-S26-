@@ -10,6 +10,7 @@ export interface SfxRequest {
 export interface BattleAudioState {
   phase: string
   hasPendingReward: boolean
+  isLoading?: boolean
 }
 
 export function emitSfx(request: SfxRequest): void {
